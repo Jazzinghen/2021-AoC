@@ -30,30 +30,64 @@ pub fn part1(input: String) {
     println!("Power consumption: {}", power_consumption);
 }
 
+pub fn check_for_one(binary_value: &str, bit_pos: usize) -> Option<bool> {
+    match binary_value.chars().nth(bit_pos).unwrap_or('x')
+        {
+            '1' => {return Some(true)},
+            '0' => {return Some(false)},
+            _ => {return None}
+        }
+}
+
 pub fn part2(input: String) {
     let line_input = input.lines();
-    let mut forward = 0;
-    let mut depth = 0;
-    let mut angle = 0;
 
-    for curr_value in line_input {
-        let mut direction_val_split = curr_value.split_whitespace();
+    let (one_data, zero_data): (Vec::<&str>, Vec::<&str>) = line_input
+        .partition(|line| check_for_one(line, 0).unwrap_or_else(|| panic!("Didn't get a proper binary string! Got {}", line)));
 
-        let direction_string = direction_val_split.next().expect("Where did our direction go?").to_lowercase();
-        let distance = direction_val_split.next().expect("Where did the distance go?").trim().parse::<i32>().expect("Didn't receive a number");
-        match direction_string.as_str() {
-            "forward" => {
-                forward += distance;
-                depth += distance * angle;
-                if depth < 0 {
-                    depth = 0;
-                }
-            },
-            "down" => {angle += distance},
-            "up" => {angle -= distance},
-            _ => {println!("Provided a non-handled direction: {}", direction_string);}
-        }
+    let (mut oxygen_data, mut carbon_data) = if one_data.len() >= zero_data.len() {
+        (one_data, zero_data)
+    } else {
+        (zero_data, one_data)
+    };
+
+    let mut curr_bit = 1;
+
+    while oxygen_data.len() > 1 {
+        let (one, zero): (Vec<&str>, Vec<&str>) = oxygen_data
+            .iter()
+            .partition(|line| check_for_one(line, curr_bit).unwrap_or_else(|| panic!("Didn't get a proper binary string! Got {}", line)));
+        curr_bit += 1;
+        oxygen_data = if one.len() >= zero.len() {
+            one
+        } else {
+            zero
+        };
+    };
+
+    let oxygen_score = match isize::from_str_radix(oxygen_data[0], 2) {
+        Ok(score) => {score},
+        Err(e) => {panic!("Couldn't parse the value of {}, got error: {}", oxygen_data[0], e)}
+    };
+
+    curr_bit = 1;
+
+    while carbon_data.len() > 1 {
+        let (one, zero): (Vec<&str>, Vec<&str>) = carbon_data
+            .iter()
+            .partition(|line| check_for_one(line, curr_bit).unwrap_or_else(|| panic!("Didn't get a proper binary string! Got {}", line)));
+        curr_bit += 1;
+        carbon_data = if one.len() >= zero.len() {
+            zero
+        } else {
+            one
+        };
     }
 
-    println!("Travel area: {}", forward * depth);
+    let carbon_score = match isize::from_str_radix(carbon_data[0], 2) {
+        Ok(score) => {score},
+        Err(e) => {panic!("Couldn't parse the value of {}, got error: {}", carbon_data[0], e)}
+    };
+
+    println!("Life support rating: {}", oxygen_score * carbon_score);
 }
