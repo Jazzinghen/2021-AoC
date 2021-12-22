@@ -82,64 +82,48 @@ pub fn part1(input: String) {
     println!("No winning boards found!");
 }
 
-pub fn check_for_one(binary_value: &str, bit_pos: usize) -> Option<bool> {
-    match binary_value.chars().nth(bit_pos).unwrap_or('x')
-        {
-            '1' => {return Some(true)},
-            '0' => {return Some(false)},
-            _ => {return None}
-        }
-}
-
 pub fn part2(input: String) {
-    let line_input = input.lines();
+    let mut line_input = input.lines();
+    let numbers_called: Vec<usize> = line_input.next().expect("Please give at least one line!").split(',').map(|val| val.parse::<usize>().expect("Didn't manage to parse the value!")).collect();
 
-    let (one_data, zero_data): (Vec::<&str>, Vec::<&str>) = line_input
-        .partition(|line| check_for_one(line, 0).unwrap_or_else(|| panic!("Didn't get a proper binary string! Got {}", line)));
+    let mut bingo_boards = Vec::<BingoBoard>::new();
+    let mut val_to_board = HashMap::<usize, HashSet<usize>>::new();
 
-    let (mut oxygen_data, mut carbon_data) = if one_data.len() >= zero_data.len() {
-        (one_data, zero_data)
-    } else {
-        (zero_data, one_data)
-    };
+    for line_chunk in line_input.chunks(6).into_iter() {
+        let mut next_board: BingoBoard = BingoBoard::default();
+        let board_idx = bingo_boards.len();
 
-    let mut curr_bit = 1;
+        for (line, data) in line_chunk.enumerate() {
+            if line > 0 {
+                for (col, int_str) in data.split_whitespace().map(|val| val.parse::<usize>().expect("Didn't manage to parse the value!")).enumerate() {
+                    if let Some(val_set) = val_to_board.get_mut(&int_str) {
+                        val_set.insert(board_idx);
+                    } else {
+                        val_to_board.insert(int_str, HashSet::from([board_idx]));
+                    }
 
-    while oxygen_data.len() > 1 {
-        let (one, zero): (Vec<&str>, Vec<&str>) = oxygen_data
-            .iter()
-            .partition(|line| check_for_one(line, curr_bit).unwrap_or_else(|| panic!("Didn't get a proper binary string! Got {}", line)));
-        curr_bit += 1;
-        oxygen_data = if one.len() >= zero.len() {
-            one
-        } else {
-            zero
-        };
-    };
+                    next_board.value_to_location.insert(int_str, (line-1, col));
+                }
+            }
+        }
 
-    let oxygen_score = match isize::from_str_radix(oxygen_data[0], 2) {
-        Ok(score) => {score},
-        Err(e) => {panic!("Couldn't parse the value of {}, got error: {}", oxygen_data[0], e)}
-    };
-
-    curr_bit = 1;
-
-    while carbon_data.len() > 1 {
-        let (one, zero): (Vec<&str>, Vec<&str>) = carbon_data
-            .iter()
-            .partition(|line| check_for_one(line, curr_bit).unwrap_or_else(|| panic!("Didn't get a proper binary string! Got {}", line)));
-        curr_bit += 1;
-        carbon_data = if one.len() >= zero.len() {
-            zero
-        } else {
-            one
-        };
+        bingo_boards.push(next_board);
     }
 
-    let carbon_score = match isize::from_str_radix(carbon_data[0], 2) {
-        Ok(score) => {score},
-        Err(e) => {panic!("Couldn't parse the value of {}, got error: {}", carbon_data[0], e)}
-    };
+    let mut last_score: usize = 0;
+    let mut winning_boards = HashSet::<usize>::default();
 
-    println!("Life support rating: {}", oxygen_score * carbon_score);
+    for num in numbers_called {
+        let matching_boards = val_to_board.get(&num).expect("We are trying to retrieve a value that we never inserted!").difference(&winning_boards);
+        let mut curr_winning_boards = HashSet::<usize>::default();
+        for board_idx in matching_boards {
+            if let Some(final_score) = bingo_boards[*board_idx].mark_value(&num) {
+                curr_winning_boards.insert(*board_idx);
+                last_score = final_score;
+            }
+        }
+        winning_boards.extend(&curr_winning_boards);
+    }
+
+    println!("The last board to win has this score: {}", last_score);
 }
