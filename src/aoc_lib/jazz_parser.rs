@@ -23,7 +23,7 @@ fn uint(input: &str) -> IResult<&str, &str> {
     (input)
 }
 
-pub fn i64(input: &str) -> IResult<&str, i64> {
+pub fn _i64(input: &str) -> IResult<&str, i64> {
     let parser = recognize(
         pair(
             opt(tag("-")),

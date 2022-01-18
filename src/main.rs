@@ -3,7 +3,10 @@ use std::fs;
 use std::io;
 use std::time::{Duration, Instant};
 
-use advent_of_code::{get_day, noop};
+mod aoc_lib;
+use aoc_lib::{get_day, noop};
+
+mod days;
 
 fn fmt_time(ms: f64) -> String {
     if ms <= 1.0 {

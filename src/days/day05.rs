@@ -5,7 +5,7 @@ use nom::sequence::separated_pair;
 use nom::combinator::{map};
 use nom::IResult;
 
-use crate::jazz_parser;
+use crate::aoc_lib::jazz_parser;
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 enum Direction {
