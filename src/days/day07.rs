@@ -1,43 +1,65 @@
-use std::{collections::VecDeque, vec};
+use std::convert::TryInto;
 
-use itertools::{sorted, Itertools};
+use itertools::{sorted};
 
-fn fuel_consuption_binary_search(sorted_positions: &Vec<u32>) -> usize {
-    let mut sorted_slice = sorted_positions.as_slice();
-    let mut left_idx: usize = 0;
-    let mut right_idx = sorted_slice.len();
+fn midpoint_binary_search(sorted_positions: &Vec<u32>, consumption_function: fn(&u32, &u32)->u32) -> u32 {
+    let mut left_location: u32 = *sorted_positions.first().expect("Expecting this vector to be larger than 0");
+    let mut right_location: u32 = *sorted_positions.last().expect("Expecting this vector to be larger than 0");
 
+    let mut left_consumption: u64 = sorted_positions.iter().fold(0u64, |mut sum, val| {sum += u64::from(consumption_function(val, &left_location)); sum});
+    let mut right_consumption: u64 = sorted_positions.iter().fold(0u64, |mut sum, val| {sum += u64::from(consumption_function(val, &right_location)); sum});
 
+    while left_consumption != right_consumption {
+        let mid_location = left_location + ((right_location - left_location) / 2);
 
-    while left_idx <= right_idx {
-        let mid_point = left_idx + ((right_idx - right_idx) / 2);
-        let mid_value = sorted_slice[mid_point];
-        let (low_slice, high_slice) = sorted_slice.split_at(mid_point);
-        let low_sum = low_slice.iter().fold(0u32, |mut sum, val| {sum += mid_value - val; sum});
-        let high_sum = high_slice.iter().fold(0u32, |mut sum, val| {sum += val - mid_value; sum});
-        if low_sum <= high_sum {
-            sorted_slice = low_slice
-            right_idx = mid_point;
+        if left_consumption <= right_consumption {
+            right_location = mid_location;
+            right_consumption = sorted_positions.iter().fold(0u64, |mut sum, val| {sum += u64::from(consumption_function(val, &right_location)); sum});
         } else {
-            left_idx = right_idx;
+            left_location = if right_location - left_location == 1 {
+                mid_location + 1
+            } else {
+                mid_location
+            };
+            left_consumption = sorted_positions.iter().fold(0u64, |mut sum, val| {sum += u64::from(consumption_function(val, &left_location)); sum});
         }
     }
 
-
-
-    return 0;
+    return left_location;
 }
 
-fn min_crab_drift(input: String) -> u64 {
+fn simple_delta(start: &u32, target: &u32) -> u32 {
+    if start > target {
+        start - target
+    } else {
+        target - start
+    }
+}
+
+fn linear_delta(start: &u32, target: &u32) -> u32 {
+    let delta = simple_delta(start, target);
+    let upped: u64 = u64::from(delta) * u64::from(delta + 1);
+    return (upped / 2).try_into().unwrap();
+}
+
+fn min_crab_fuel(input: String, consumption_function: fn(&u32, &u32)->u32) -> u64 {
     let initial_horizontal = input.split(',').map(|hor| hor.trim().parse::<u32>().expect("Given a non-number as horizontal position!"));
     let sorted_horizontal: Vec<u32> = sorted(initial_horizontal).collect();
 
-    return lives_count.into_iter().sum();
+    let mid_point = midpoint_binary_search(&sorted_horizontal, consumption_function);
+    let fuel_cost = sorted_horizontal.iter().fold(0u64, |mut sum, val| {sum += u64::from(consumption_function(val, &mid_point)); sum});
+
+    return fuel_cost;
 }
 
 pub fn part1(input: String) {
-    let min_fuel_needed = min_crab_drift(input);
-    println!("Final population: {}", min_fuel_needed);
+    let min_consumption = min_crab_fuel(input, simple_delta);
+    println!("Estimated minimum cost: {}", min_consumption);
+}
+
+pub fn part2(input: String) {
+    let min_consumption = min_crab_fuel(input, linear_delta);
+    println!("Estimated minimum geometric cost: {}", min_consumption);
 }
 
 #[cfg(test)]
@@ -48,8 +70,17 @@ mod tests {
     fn base_case() {
         let input_string = "16,1,2,0,4,2,7,1,2,14";
 
-        let min_fuel_needed = min_crab_drift(input_string.to_string());
+        let min_fuel_needed = min_crab_fuel(input_string.to_string(), simple_delta);
 
         assert_eq!(min_fuel_needed, 37u64);
+    }
+
+    #[test]
+    fn linear_rate() {
+        let input_string = "16,1,2,0,4,2,7,1,2,14";
+
+        let min_fuel_needed = min_crab_fuel(input_string.to_string(), linear_delta);
+
+        assert_eq!(min_fuel_needed, 168u64);
     }
 }
