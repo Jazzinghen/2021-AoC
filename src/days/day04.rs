@@ -41,7 +41,7 @@ impl BingoBoard {
     }
 }
 
-pub fn part1(input: String) {
+pub fn part1(input: &str) {
     let mut line_input = input.lines();
     let numbers_called: Vec<usize> = line_input.next().expect("Please give at least one line!").split(',').map(|val| val.parse::<usize>().expect("Didn't manage to parse the value!")).collect();
 

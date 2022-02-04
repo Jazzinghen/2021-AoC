@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-pub fn part1(input: String) {
+pub fn part1(input: &str) {
     let mut increase_amount = 0;
     let mut line_input = input.split('\n');
     let mut last_value: u32 = line_input.next().expect("An empty input, really?").trim().parse::<u32>().expect("The first line is not an integer!");
@@ -40,7 +40,7 @@ fn sum_window(tuple: (&str, &str, &str)) -> Option<i32> {
     Some(final_sum)
 }
 
-pub fn part2(input: String) {
+pub fn part2(input: &str) {
     let mut line_input = input.split('\n').tuple_windows::<(_,_,_)>();
     //let mut
     let mut last_full_value = sum_window(line_input.next().unwrap()).expect("I am expecting more than three values");

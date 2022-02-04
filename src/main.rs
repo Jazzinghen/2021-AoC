@@ -4,7 +4,7 @@ use std::io;
 use std::time::{Duration, Instant};
 
 mod aoc_lib;
-use aoc_lib::{get_day, noop};
+use aoc_lib::get_day;
 
 mod days;
 
@@ -70,18 +70,18 @@ fn main() {
     let to_run = get_day(day_num);
 
     // Time it
-    if to_run.0 != noop {
+    if let Some(part_one) = to_run.0 {
         println!("Running Part 1");
         let part1_start = Instant::now();
-        to_run.0(input.clone());
+        part_one(&input);
         let part1_dur = part1_start.elapsed();
         println!("Took {}", fmt_dur(part1_dur));
     }
 
-    if to_run.1 != noop {
+    if let Some(part_two) = to_run.1 {
         println!("Running Part 2");
         let part2_start = Instant::now();
-        to_run.1(input.clone());
+        part_two(&input);
         let part2_dur = part2_start.elapsed();
         println!("Took {}", fmt_dur(part2_dur));
     }

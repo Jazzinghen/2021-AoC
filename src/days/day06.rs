@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, vec};
 
-fn lanternfish_evolution(input: String, time_horizon: u16) -> u64 {
+fn lanternfish_evolution(input: &str, time_horizon: u16) -> u64 {
     let start_lives = input.split(',');
 
     let mut starting_lifetimes_count = vec![0u64;9];
@@ -19,12 +19,12 @@ fn lanternfish_evolution(input: String, time_horizon: u16) -> u64 {
     return lives_count.into_iter().sum();
 }
 
-pub fn part1(input: String) {
+pub fn part1(input: &str) {
     let final_population = lanternfish_evolution(input, 80);
     println!("Final population: {}", final_population);
 }
 
-pub fn part2(input: String) {
+pub fn part2(input: &str) {
     let final_population = lanternfish_evolution(input, 256);
     println!("Final population: {}", final_population);
 }
@@ -37,7 +37,7 @@ mod tests {
     fn normal_conditions() {
         let input_string = "3,4,3,1,2";
 
-        let population_count = lanternfish_evolution(input_string.to_string(), 80);
+        let population_count = lanternfish_evolution(input_string, 80);
 
         assert_eq!(population_count, 5934u64);
     }
@@ -46,7 +46,7 @@ mod tests {
     fn infinite_resources() {
         let input_string = "3,4,3,1,2";
 
-        let population_count = lanternfish_evolution(input_string.to_string(), 256);
+        let population_count = lanternfish_evolution(input_string, 256);
 
         assert_eq!(population_count, 26984457539u64);
     }

@@ -1,4 +1,4 @@
-pub fn part1(input: String) {
+pub fn part1(input: &str) {
     let line_input = input.lines();
     let mut forward = 0;
     let mut depth = 0;
@@ -24,7 +24,7 @@ pub fn part1(input: String) {
     println!("Travel area: {}", forward * depth);
 }
 
-pub fn part2(input: String) {
+pub fn part2(input: &str) {
     let line_input = input.lines();
     let mut forward = 0;
     let mut depth = 0;

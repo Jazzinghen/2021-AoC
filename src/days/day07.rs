@@ -42,7 +42,7 @@ fn linear_delta(start: &u32, target: &u32) -> u32 {
     return (upped / 2).try_into().unwrap();
 }
 
-fn min_crab_fuel(input: String, consumption_function: fn(&u32, &u32)->u32) -> u64 {
+fn min_crab_fuel(input: &str, consumption_function: fn(&u32, &u32)->u32) -> u64 {
     let initial_horizontal = input.split(',').map(|hor| hor.trim().parse::<u32>().expect("Given a non-number as horizontal position!"));
     let sorted_horizontal: Vec<u32> = sorted(initial_horizontal).collect();
 
@@ -52,12 +52,12 @@ fn min_crab_fuel(input: String, consumption_function: fn(&u32, &u32)->u32) -> u6
     return fuel_cost;
 }
 
-pub fn part1(input: String) {
+pub fn part1(input: &str) {
     let min_consumption = min_crab_fuel(input, simple_delta);
     println!("Estimated minimum cost: {}", min_consumption);
 }
 
-pub fn part2(input: String) {
+pub fn part2(input: &str) {
     let min_consumption = min_crab_fuel(input, linear_delta);
     println!("Estimated minimum geometric cost: {}", min_consumption);
 }
@@ -70,7 +70,7 @@ mod tests {
     fn base_case() {
         let input_string = "16,1,2,0,4,2,7,1,2,14";
 
-        let min_fuel_needed = min_crab_fuel(input_string.to_string(), simple_delta);
+        let min_fuel_needed = min_crab_fuel(input_string, simple_delta);
 
         assert_eq!(min_fuel_needed, 37u64);
     }
@@ -79,7 +79,7 @@ mod tests {
     fn linear_rate() {
         let input_string = "16,1,2,0,4,2,7,1,2,14";
 
-        let min_fuel_needed = min_crab_fuel(input_string.to_string(), linear_delta);
+        let min_fuel_needed = min_crab_fuel(input_string, linear_delta);
 
         assert_eq!(min_fuel_needed, 168u64);
     }

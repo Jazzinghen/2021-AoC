@@ -147,13 +147,13 @@ fn output_decrypt_sum(input: &str) -> u64 {
     return final_sum;
 }
 
-pub fn part1(input: String) {
-    let simple_digits_count = lcd_simple_digit_count(&input);
+pub fn part1(input: &str) {
+    let simple_digits_count = lcd_simple_digit_count(input);
     println!("Amount of simple digits: {}", simple_digits_count);
 }
 
-pub fn part2(input: String) {
-    let decrypted_sum= output_decrypt_sum(&input);
+pub fn part2(input: &str) {
+    let decrypted_sum= output_decrypt_sum(input);
     println!("Sum of all the encrypted values: {}", decrypted_sum);
 }
 

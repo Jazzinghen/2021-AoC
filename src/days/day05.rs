@@ -103,17 +103,17 @@ fn segment(input: &str) -> IResult<&str, Line> {
     (input)
 }
 
-pub fn part1(input: String) {
+pub fn part1(input: &str) {
     let intersections = intersection_check(input, false);
     println!("Number of intersections: {}", intersections);
 }
 
-pub fn part2(input: String) {
+pub fn part2(input: &str) {
     let intersections = intersection_check(input, true);
     println!("Number of intersections: {}", intersections);
 }
 
-fn intersection_check(input: String, enable_diagonals: bool) -> i32 {
+fn intersection_check(input: &str, enable_diagonals: bool) -> i32 {
     let line_input = input.lines();
 
     let mut occupation_map = HashMap::<(usize, usize), usize>::new();
@@ -186,7 +186,7 @@ mod tests {
 0,0 -> 8,8
 5,5 -> 8,2";
 
-        let intersections = intersection_check(input_string.to_string(), false);
+        let intersections = intersection_check(input_string, false);
 
         assert_eq!(intersections, 5);
     }
@@ -204,7 +204,7 @@ mod tests {
 0,0 -> 8,8
 5,5 -> 8,2";
 
-        let intersections = intersection_check(input_string.to_string(), true);
+        let intersections = intersection_check(input_string, true);
 
         assert_eq!(intersections, 12);
     }

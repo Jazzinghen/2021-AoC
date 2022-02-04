@@ -1,4 +1,4 @@
-pub fn part1(input: String) {
+pub fn part1(input: &str) {
     let mut line_input = input.lines().peekable();
     let mut frequencies = vec![0; line_input.peek().expect("I need at least one line, man.").len()];
 
@@ -39,7 +39,7 @@ pub fn check_for_one(binary_value: &str, bit_pos: usize) -> Option<bool> {
         }
 }
 
-pub fn part2(input: String) {
+pub fn part2(input: &str) {
     let line_input = input.lines();
 
     let (one_data, zero_data): (Vec::<&str>, Vec::<&str>) = line_input
