@@ -2,7 +2,7 @@ use std::convert::{TryInto};
 use std::collections::{HashSet};
 use std::fmt;
 
-use itertools::{Itertools, multiunzip};
+use itertools::Itertools;
 
 struct RiskGrid {
     data: Vec<u8>,
@@ -19,7 +19,7 @@ impl RiskGrid {
         for row in grid_rows {
             row_count += 1;
             col_count = row.len();
-            for (col, risk) in row.chars().enumerate() {
+            for risk in row.chars() {
                 let risk_digit: u8 = risk.to_digit(10).unwrap().try_into().unwrap();
                 flat_data.push(risk_digit);
             }
@@ -33,10 +33,6 @@ impl RiskGrid {
         *self.data.get(flat_idx).expect("Provided location is out of the grid bounds!")
     }
 
-    pub fn get_dimensions(&self) -> (usize, usize) {
-        (self.rows, self.columns)
-    }
-
     pub fn find_local_minima(&self) -> Vec<((usize, usize), u8)> {
         let grid_locations = (0..self.rows).cartesian_product(0..self.columns);
 
@@ -48,13 +44,10 @@ impl RiskGrid {
         let mut already_visited: HashSet<(usize, usize)> = HashSet::new();
         let mut minimum_risks: Vec<((usize, usize), u8)> = Vec::new();
 
-        let mut visits = 0usize;
-
         // Time for that graph exploration. I am using depth-first visit, but I could have used breadth-first as well
         while let Some(next_risk_loc) = visit_stack.pop() {
             let mut minimum_found = true;
             if !already_visited.contains(&next_risk_loc) {
-                visits += 1;
                 if next_risk_loc.0 > 0 {
                     let upper_location = (next_risk_loc.0 - 1, next_risk_loc.1);
                     if self.get_risk(&next_risk_loc) >= self.get_risk(&upper_location) {
@@ -175,8 +168,12 @@ pub fn part1(input: &str) {
 }
 
 pub fn part2(input: &str) {
-    //let min_consumption = min_crab_fuel(input, linear_delta);
-    //println!("Estimated minimum geometric cost: {}", min_consumption);
+    let risk_grid = RiskGrid::new(input);
+    let (minima_locations, _): (Vec<_>, Vec<_>) = risk_grid.find_local_minima().iter().cloned().unzip();
+    let basins = risk_grid.find_basin_sizes(&minima_locations);
+    let top_basins = basins.iter().sorted().rev().take(3);
+    let basin_area = top_basins.fold(1u64, |total, area| total * area);
+    println!("Product of top three largest basins: {}", basin_area);
 }
 
 #[cfg(test)]
