@@ -118,7 +118,7 @@ impl fmt::Display for RiskGrid {
 pub fn part1(input: &str) {
     let risk_grid = RiskGrid::new(input);
     let risk_minima = risk_grid.find_local_minima();
-    let risk_sum: u64 = risk_minima.iter().fold(0u64, |mut sum, val| {sum += u64::from(val.1 + 1); sum});
+    let risk_sum: u64 = risk_minima.iter().fold(0u64, |mut sum, (_, val)| {sum += u64::from(*val + 1); sum});
     println!("Sum of minima: {}", risk_sum);
 }
 
@@ -139,8 +139,9 @@ mod tests {
                                  8767896789
                                  9899965678";
 
-        let min_points = find_local_minima(input_string);
-        let risk_sum: u64 = min_points.iter().fold(0u64, |mut sum, val| {sum += u64::from(*val + 1); sum});
+        let risk_grid = RiskGrid::new(input_string);
+        let min_points = risk_grid.find_local_minima();
+        let risk_sum: u64 = min_points.iter().fold(0u64, |mut sum, (_, val)| {sum += u64::from(*val + 1); sum});
 
         assert_eq!(risk_sum, 15u64);
     }
