@@ -25,7 +25,6 @@ fn compute_syntax_error_score(input: &str) -> u64 {
     let mut score = 0u64;
     for syntax_line in input.split_whitespace() {
         if let Some(wrong_char) = syntax_line_check(syntax_line) {
-            println!("Found a non-matched character: {}!", wrong_char);
             score += error_score.get(&wrong_char).unwrap();
         }
     }
@@ -34,8 +33,8 @@ fn compute_syntax_error_score(input: &str) -> u64 {
 }
 
 pub fn part1(input: &str) {
-    //let min_consumption = min_crab_fuel(input, simple_delta);
-    //println!("Estimated minimum cost: {}", min_consumption);
+    let syntax_error_score = compute_syntax_error_score(input);
+    println!("Syntax error score: {}", syntax_error_score);
 }
 
 pub fn part2(input: &str) {
