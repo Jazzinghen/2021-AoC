@@ -36,6 +36,67 @@ impl RiskGrid {
     pub fn get_dimensions(&self) -> (usize, usize) {
         (self.rows, self.columns)
     }
+
+    pub fn find_local_minima(&self) -> Vec<((usize, usize), u8)> {
+        let grid_locations = (0..self.rows).cartesian_product(0..self.columns);
+
+        let mut visit_stack: Vec<(usize, usize)> = Vec::new();
+        for loc in grid_locations {
+            visit_stack.push(loc);
+        }
+
+        let mut already_visited: HashSet<(usize, usize)> = HashSet::new();
+        let mut minimum_risks: Vec<((usize, usize), u8)> = Vec::new();
+
+        let mut visits = 0usize;
+
+        // Time for that graph exploration. I am using depth-first visit, but I could have used breadth-first as well
+        while let Some(next_risk_loc) = visit_stack.pop() {
+            let mut minimum_found = true;
+            if !already_visited.contains(&next_risk_loc) {
+                visits += 1;
+                if next_risk_loc.0 > 0 {
+                    let upper_location = (next_risk_loc.0 - 1, next_risk_loc.1);
+                    if self.get_risk(&next_risk_loc) >= self.get_risk(&upper_location) {
+                        minimum_found = false;
+                        visit_stack.push(upper_location);
+                    };
+                };
+
+                if next_risk_loc.0 < self.rows - 1 {
+                    let lower_location = (next_risk_loc.0 + 1, next_risk_loc.1);
+                    if self.get_risk(&next_risk_loc) >= self.get_risk(&lower_location) {
+                        minimum_found = false;
+                        visit_stack.push(lower_location);
+                    };
+                };
+
+                if next_risk_loc.1 > 0 {
+                    let left_location = (next_risk_loc.0, next_risk_loc.1 - 1);
+                    if self.get_risk(&next_risk_loc) >= self.get_risk(&left_location) {
+                        minimum_found = false;
+                        visit_stack.push(left_location);
+                    };
+                };
+
+                if next_risk_loc.1 < self.columns - 1 {
+                    let right_location = (next_risk_loc.0, next_risk_loc.1 + 1);
+                    if self.get_risk(&next_risk_loc) >= self.get_risk(&right_location) {
+                        minimum_found = false;
+                        visit_stack.push(right_location);
+                    };
+                };
+
+                if minimum_found {
+                    minimum_risks.push((next_risk_loc, self.get_risk(&next_risk_loc)));
+                }
+
+                already_visited.insert(next_risk_loc);
+            }
+        }
+
+        return minimum_risks;
+    }
 }
 
 impl fmt::Display for RiskGrid {
@@ -54,74 +115,10 @@ impl fmt::Display for RiskGrid {
     }
 }
 
-fn find_local_minima(input: &str) -> Vec<u8> {
-    let risk_grid = RiskGrid::new(input);
-    let grid_size = risk_grid.get_dimensions();
-    let grid_locations = (0..grid_size.0).cartesian_product(0..grid_size.1);
-
-    let mut visit_stack: Vec<(usize, usize)> = Vec::new();
-    for loc in grid_locations {
-        visit_stack.push(loc);
-    }
-
-    let mut already_visited: HashSet<(usize, usize)> = HashSet::new();
-    let mut minimum_risks: Vec<u8> = Vec::new();
-
-    let mut visits = 0usize;
-
-    // Time for that graph exploration. I am using depth-first visit, but I could have used breadth-first as well
-    while let Some(next_risk_loc) = visit_stack.pop() {
-        let mut minimum_found = true;
-        if !already_visited.contains(&next_risk_loc) {
-            visits += 1;
-            if next_risk_loc.0 > 0 {
-                let upper_location = (next_risk_loc.0 - 1, next_risk_loc.1);
-                if risk_grid.get_risk(&next_risk_loc) >= risk_grid.get_risk(&upper_location) {
-                    minimum_found = false;
-                    visit_stack.push(upper_location);
-                };
-            };
-
-            if next_risk_loc.0 < grid_size.0 - 1 {
-                let lower_location = (next_risk_loc.0 + 1, next_risk_loc.1);
-                if risk_grid.get_risk(&next_risk_loc) >= risk_grid.get_risk(&lower_location) {
-                    minimum_found = false;
-                    visit_stack.push(lower_location);
-                };
-            };
-
-            if next_risk_loc.1 > 0 {
-                let left_location = (next_risk_loc.0, next_risk_loc.1 - 1);
-                if risk_grid.get_risk(&next_risk_loc) >= risk_grid.get_risk(&left_location) {
-                    minimum_found = false;
-                    visit_stack.push(left_location);
-                };
-            };
-
-            if next_risk_loc.1 < grid_size.1 - 1 {
-                let right_location = (next_risk_loc.0, next_risk_loc.1 + 1);
-                if risk_grid.get_risk(&next_risk_loc) >= risk_grid.get_risk(&right_location) {
-                    minimum_found = false;
-                    visit_stack.push(right_location);
-                };
-            };
-
-            if minimum_found {
-                minimum_risks.push(risk_grid.get_risk(&next_risk_loc));
-            }
-
-            already_visited.insert(next_risk_loc);
-        }
-    }
-
-    println!("Total visits: {}; Grid size: {}", visits, grid_size.0 * grid_size.1);
-
-    return minimum_risks;
-}
-
 pub fn part1(input: &str) {
-    let risk_minima = find_local_minima(input);
-    let risk_sum: u64 = risk_minima.iter().fold(0u64, |mut sum, val| {sum += u64::from(*val + 1); sum});
+    let risk_grid = RiskGrid::new(input);
+    let risk_minima = risk_grid.find_local_minima();
+    let risk_sum: u64 = risk_minima.iter().fold(0u64, |mut sum, val| {sum += u64::from(val.1 + 1); sum});
     println!("Sum of minima: {}", risk_sum);
 }
 
