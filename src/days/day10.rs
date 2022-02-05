@@ -1,4 +1,4 @@
-use std::collections::{HashMap};
+use std::collections::{HashMap, HashSet};
 
 fn syntax_line_check(line: &str) -> Option<char> {
     let parentheses_combo = HashMap::from([('(', ')'), ('<', '>'), ('{', '}'), ('[', ']')]);
@@ -20,26 +20,49 @@ fn syntax_line_check(line: &str) -> Option<char> {
     None
 }
 
-fn compute_syntax_error_score(input: &str) -> u64 {
-    let error_score = HashMap::from([(')', 3u64), ('>', 25137u64), ('}', 1197u64), (']', 57u64)]);
-    let mut score = 0u64;
-    for syntax_line in input.split_whitespace() {
-        if let Some(wrong_char) = syntax_line_check(syntax_line) {
-            score += error_score.get(&wrong_char).unwrap();
+// This function is written assuming that it's correct, just incomplete
+fn compute_autocomplete_cost(input: &str) -> u64 {
+    let parentheses_combo = HashSet::from(['(', '<', '{', '[']);
+    let autocomplete_costs = HashMap::from([('(', 1u64), ('[', 2u64), ('{', 3u64), ('<', 4u64)]);
+    let mut parentheses_stack: Vec<char> = Vec::new();
+    let mut autocomplete_cost = 0u64;
+    // It assumes it's correct, as I said
+    for par in input.chars() {
+        if parentheses_combo.contains(&par) {
+            parentheses_stack.push(par);
+        } else {
+            let _ = parentheses_stack.pop().unwrap();
         }
     }
 
-    return score;
+    while let Some(curr_open) = parentheses_stack.pop() {
+        autocomplete_cost *= 5;
+        autocomplete_cost += autocomplete_costs.get(&curr_open).unwrap();
+    }
+
+    return autocomplete_cost;
+}
+
+fn compute_syntax_scores(input: &str) -> (u64, u64) {
+    let error_score = HashMap::from([(')', 3u64), ('>', 25137u64), ('}', 1197u64), (']', 57u64)]);
+    let mut syntax_score = 0u64;
+    let mut autocomplete_costs = Vec::new();
+    for syntax_line in input.split_whitespace() {
+        if let Some(wrong_char) = syntax_line_check(syntax_line) {
+            syntax_score += error_score.get(&wrong_char).unwrap();
+        } else {
+            autocomplete_costs.push(compute_autocomplete_cost(syntax_line));
+        }
+    }
+
+    autocomplete_costs.sort();
+
+    return (syntax_score, autocomplete_costs[autocomplete_costs.len() / 2]);
 }
 
 pub fn part1(input: &str) {
-    let syntax_error_score = compute_syntax_error_score(input);
-    println!("Syntax error score: {}", syntax_error_score);
-}
-
-pub fn part2(input: &str) {
-    //let min_consumption = min_crab_fuel(input, linear_delta);
-    //println!("Estimated minimum geometric cost: {}", min_consumption);
+    let (syntax_error_score, autocomplete_cost) = compute_syntax_scores(input);
+    println!("Syntax error score: {}; Autocomplete cost: {}", syntax_error_score, autocomplete_cost);
 }
 
 #[cfg(test)]
@@ -59,8 +82,26 @@ mod tests {
                             <{([([[(<>()){}]>(<<{{
                             <{([{{}}[<[[[<>{}]]]>[]]";
 
-        let syntax_error_score = compute_syntax_error_score(input_string);
+        let (syntax_error_score, _) = compute_syntax_scores(input_string);
 
         assert_eq!(syntax_error_score, 26397u64);
+    }
+
+    #[test]
+    fn complete_lines() {
+        let input_string = "[({(<(())[]>[[{[]{<()<>>
+                            [(()[<>])]({[<{<<[]>>(
+                            {([(<{}[<>[]}>{[]{[(<()>
+                            (((({<>}<{<{<>}{[]{[]{}
+                            [[<[([]))<([[{}[[()]]]
+                            [{[{({}]{}}([{[{{{}}([]
+                            {<[[]]>}<{[{[{[]{()[[[]
+                            [<(<(<(<{}))><([]([]()
+                            <{([([[(<>()){}]>(<<{{
+                            <{([{{}}[<[[[<>{}]]]>[]]";
+
+        let (_, autocomplete_cost) = compute_syntax_scores(input_string);
+
+        assert_eq!(autocomplete_cost, 288957u64);
     }
 }
