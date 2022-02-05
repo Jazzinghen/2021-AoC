@@ -2,7 +2,7 @@ use std::convert::{TryInto};
 use std::collections::{HashSet};
 use std::fmt;
 
-use itertools::{Itertools};
+use itertools::{Itertools, multiunzip};
 
 struct RiskGrid {
     data: Vec<u8>,
@@ -30,7 +30,7 @@ impl RiskGrid {
 
     pub fn get_risk(&self, location: &(usize, usize)) -> u8 {
         let flat_idx = location.0 * self.columns + location.1;
-        self.data[flat_idx]
+        *self.data.get(flat_idx).expect("Provided location is out of the grid bounds!")
     }
 
     pub fn get_dimensions(&self) -> (usize, usize) {
@@ -97,6 +97,58 @@ impl RiskGrid {
 
         return minimum_risks;
     }
+
+    // This will be a reverse graph search based on some starting locations
+    pub fn find_basin_sizes(&self, minima: &Vec<(usize, usize)>) -> Vec<u64> {
+        let mut basins: Vec<u64> = Vec::new();
+        for initial_location in minima {
+            let mut visit_stack: Vec<(usize, usize)> = Vec::new();
+            visit_stack.push(*initial_location);
+
+            let mut already_visited: HashSet<(usize, usize)> = HashSet::new();
+
+            let mut basin_size = 0u64;
+
+            while let Some(next_basin_loc) = visit_stack.pop() {
+                if !already_visited.contains(&next_basin_loc) {
+                    basin_size += 1;
+                    if next_basin_loc.0 > 0 {
+                        let upper_location = (next_basin_loc.0 - 1, next_basin_loc.1);
+                        if self.get_risk(&upper_location) < 9u8 {
+                            visit_stack.push(upper_location);
+                        };
+                    };
+
+                    if next_basin_loc.0 < self.rows - 1 {
+                        let lower_location = (next_basin_loc.0 + 1, next_basin_loc.1);
+                        if self.get_risk(&lower_location) < 9u8 {
+                            visit_stack.push(lower_location);
+                        };
+                    };
+
+                    if next_basin_loc.1 > 0 {
+                        let left_location = (next_basin_loc.0, next_basin_loc.1 - 1);
+                        if self.get_risk(&left_location) < 9u8 {
+                            visit_stack.push(left_location);
+                        };
+                    };
+
+                    if next_basin_loc.1 < self.columns - 1 {
+                        let right_location = (next_basin_loc.0, next_basin_loc.1 + 1);
+                        if self.get_risk(&right_location) < 9u8 {
+                            visit_stack.push(right_location);
+                        };
+                    };
+
+                    already_visited.insert(next_basin_loc);
+                }
+            }
+
+            basins.push(basin_size);
+        };
+
+        return basins;
+    }
 }
 
 impl fmt::Display for RiskGrid {
@@ -117,8 +169,8 @@ impl fmt::Display for RiskGrid {
 
 pub fn part1(input: &str) {
     let risk_grid = RiskGrid::new(input);
-    let risk_minima = risk_grid.find_local_minima();
-    let risk_sum: u64 = risk_minima.iter().fold(0u64, |mut sum, (_, val)| {sum += u64::from(*val + 1); sum});
+    let (_, minima_risk): (Vec<_>, Vec<_>) = risk_grid.find_local_minima().iter().cloned().unzip();
+    let risk_sum: u64 = minima_risk.iter().fold(0u64, |sum, val| sum + u64::from(*val + 1));
     println!("Sum of minima: {}", risk_sum);
 }
 
@@ -140,9 +192,26 @@ mod tests {
                                  9899965678";
 
         let risk_grid = RiskGrid::new(input_string);
-        let min_points = risk_grid.find_local_minima();
-        let risk_sum: u64 = min_points.iter().fold(0u64, |mut sum, (_, val)| {sum += u64::from(*val + 1); sum});
+        let (_, minima_risk): (Vec<_>, Vec<_>) = risk_grid.find_local_minima().iter().cloned().unzip();
+        let risk_sum: u64 = minima_risk.iter().fold(0u64, |sum, val| sum + u64::from(*val + 1));
 
         assert_eq!(risk_sum, 15u64);
+    }
+
+    #[test]
+    fn basins() {
+        let input_string = "2199943210
+                                 3987894921
+                                 9856789892
+                                 8767896789
+                                 9899965678";
+
+        let risk_grid = RiskGrid::new(input_string);
+        let (minima_locations, _): (Vec<_>, Vec<_>) = risk_grid.find_local_minima().iter().cloned().unzip();
+        let basins = risk_grid.find_basin_sizes(&minima_locations);
+        let top_basins = basins.iter().sorted().rev().take(3);
+        let basin_area = top_basins.fold(1u64, |total, area| total * area);
+
+        assert_eq!(basin_area, 1134u64);
     }
 }
