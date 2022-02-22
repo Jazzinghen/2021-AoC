@@ -201,12 +201,12 @@ impl ActivationData {
                     if row.get(&col).is_some() {
                         print!("#");
                     } else {
-                        print!(".");
+                        print!(" ");
                     }
                 }
             } else {
                 for _ in 0..max_col {
-                    print!(".");
+                    print!(" ");
                 }
             }
             println!();
@@ -227,6 +227,7 @@ pub fn part2(input: &str) {
     println!("Activation paper after folding:");
     println!();
     data.print_activation();
+    println!();
 }
 
 #[cfg(test)]
