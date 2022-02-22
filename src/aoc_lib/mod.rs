@@ -20,7 +20,7 @@ pub fn get_day(day: u32) -> (Option<DayFn>, Option<DayFn>) {
         10 => (Some(days::day10::part1), None),
         11 => (Some(days::day11::part1), Some(days::day11::part2)),
         12 => (Some(days::day12::part1), Some(days::day12::part2)),
-        13 => (Some(days::day13::part1), None),
+        13 => (Some(days::day13::part1), Some(days::day13::part2)),
         _ => {
             println!("Unknown day: {}", day);
             return (None, None);

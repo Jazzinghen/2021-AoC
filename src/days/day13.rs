@@ -1,13 +1,9 @@
 use std::collections::{HashMap, HashSet, VecDeque, BTreeMap};
 use std::convert::TryFrom;
-use std::hash::Hash;
-use std::slice::SliceIndex;
 
-use nom::bytes::complete::{tag, take_till};
+use nom::bytes::complete::{tag};
 use nom::character::complete::{one_of, digit1, space0};
-use nom::character::{is_space};
 use nom::sequence::{separated_pair, preceded};
-use nom::combinator::{map};
 use nom::branch::{alt};
 use nom::{IResult, ParseTo};
 
@@ -113,7 +109,7 @@ impl ActivationData {
         let mut moved_data_rows: HashMap<usize, Vec<(usize, usize)>> = HashMap::new();
         let (&max_col, _) = self.cols.iter().next_back().unwrap();
 
-        for (col_idx, points) in self.cols.range_mut(col..max_col) {
+        for (col_idx, points) in self.cols.range_mut(col..=max_col) {
             let target_col_idx = col * 2 - col_idx;
             moved_data_cols.insert(target_col_idx, points.iter().map(|i| *i).collect());
             removed_cols.push(*col_idx);
@@ -155,7 +151,7 @@ impl ActivationData {
         let mut moved_data_cols: HashMap<usize, Vec<(usize, usize)>> = HashMap::new();
         let (&max_row, _) = self.rows.iter().next_back().unwrap();
 
-        for (row_idx, points) in self.rows.range_mut(row..max_row) {
+        for (row_idx, points) in self.rows.range_mut(row..=max_row) {
             let target_row_idx = row * 2 - row_idx;
             moved_data_rows.insert(target_row_idx, points.iter().map(|i| *i).collect());
             removed_rows.push(*row_idx);
@@ -194,6 +190,28 @@ impl ActivationData {
     pub fn get_unique_points(self) -> u64 {
         self.rows.iter().fold(0u64, |sum, (_, points)| sum + u64::try_from(points.len()).unwrap())
     }
+
+    pub fn print_activation(self) {
+        let (&max_row, _) = self.rows.iter().next_back().unwrap();
+        let (&max_col, _) = self.cols.iter().next_back().unwrap();
+
+        for row_idx in 0..=max_row {
+            if let Some(row) = self.rows.get(&row_idx) {
+                for col in 0..=max_col {
+                    if row.get(&col).is_some() {
+                        print!("#");
+                    } else {
+                        print!(".");
+                    }
+                }
+            } else {
+                for _ in 0..max_col {
+                    print!(".");
+                }
+            }
+            println!();
+        }
+    }
 }
 
 pub fn part1(input: &str) {
@@ -203,10 +221,12 @@ pub fn part1(input: &str) {
     println!("Amount of unique points after one fold: {}", point_count);
 }
 
-pub fn _part2(input: &str) {
-    // let cave_net = CaveNetwork::new(input);
-    // let path_count = cave_net.find_paths(true);
-    // println!("Amount of unique paths to the exit considering repeating caves: {}", path_count);
+pub fn part2(input: &str) {
+    let mut data = ActivationData::new(input);
+    data.fold_all();
+    println!("Activation paper after folding:");
+    println!();
+    data.print_activation();
 }
 
 #[cfg(test)]
