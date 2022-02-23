@@ -1,5 +1,4 @@
 use std::collections::{HashMap};
-use std::hash::Hash;
 
 use itertools::{Itertools, MinMaxResult};
 
@@ -96,7 +95,7 @@ impl PolymerData {
             frequencies.insert(last_element, 1u64);
         }
 
-        let mut delta: u64 = 0u64;
+        let delta: u64;
         if let MinMaxResult::MinMax(min, max) = frequencies.values().minmax() {
             delta = max - min;
         } else {
@@ -123,6 +122,8 @@ pub fn part2(input: &str) {
 
 #[cfg(test)]
 mod tests {
+    use std::iter::FromIterator;
+
     use super::*;
 
     #[test]
@@ -156,8 +157,9 @@ mod tests {
         //   - B: 2
         //   - H: 1
         let (delta, freqs) = data.compute_elements_delta();
+        let validation_freqs: HashMap<char, u64> = HashMap::from_iter(vec![('N', 2), ('C', 2), ('B', 2), ('H', 1)]);
+        assert_eq!(freqs, validation_freqs);
         assert_eq!(delta, 1u64);
-
     }
 
     #[test]
@@ -185,7 +187,14 @@ mod tests {
         data.evolve_polymer(4);
 
         // Resulting polymer: NBBNBNBBCCNBCNCCNBBNBBNBBBNBBNBBCBHCBHHNHCBBCBHCB
+        // Frequencies:
+        //   - B: 23
+        //   - N: 11
+        //   - C: 10
+        //   - H: 5
         let (delta, freqs) = data.compute_elements_delta();
+        let validation_freqs: HashMap<char, u64> = HashMap::from_iter(vec![('B', 23), ('N', 11), ('C', 10), ('H', 5)]);
+        assert_eq!(freqs, validation_freqs);
         assert_eq!(delta, 18u64);
     }
 
@@ -213,7 +222,15 @@ mod tests {
         let mut data = PolymerData::new(input_string);
         data.evolve_polymer(10);
 
+        // Resulting polymer: ??? (Too long)
+        // Frequencies: B occurs 1749 times, C occurs 298 times, H occurs 161 times, and N occurs 865 times
+        //   - B: 1749
+        //   - N: 865
+        //   - C: 298
+        //   - H: 161
         let (delta, freqs) = data.compute_elements_delta();
+        let validation_freqs: HashMap<char, u64> = HashMap::from_iter(vec![('B', 1749), ('N', 865), ('C', 298), ('H', 161)]);
+        assert_eq!(freqs, validation_freqs);
         assert_eq!(delta, 1588u64);
     }
 }
