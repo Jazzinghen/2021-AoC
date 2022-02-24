@@ -191,10 +191,13 @@ pub fn part1(input: &str) {
     println!("Lowest risk path sum: {}", risk_grid.find_lowest_risk_path(&(start, grid_coord), &(end, grid_coord)));
 }
 
-pub fn _part2(_input: &str) {
-    // let mut octo_grid = OctopusGrid::new(input);
-    // let synchronization_flash = octo_grid.first_coordinated_flash();
-    // println!("First synchronized step: {}", synchronization_flash);
+pub fn part2(input: &str) {
+    let risk_grid = RiskGrid::new(input);
+    let start: Point = (0, 0);
+    let end: Point = (risk_grid.rows - 1, risk_grid.columns - 1);
+    let start_grid_coord: GridCoord = (0u8, 0u8);
+    let end_grid_coord: GridCoord = (4u8, 4u8);
+    println!("Lowest risk path sum: {}", risk_grid.find_lowest_risk_path(&(start, start_grid_coord), &(end, end_grid_coord)));
 }
 
 #[cfg(test)]
