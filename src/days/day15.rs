@@ -144,15 +144,16 @@ impl RiskGrid {
 
         while let Some(current_step) = exploration_front.pop() {
             let actual_a_star_location = self.compute_a_star_coord(&current_step.location, &current_step.grid_location);
-            visited_locations.insert(actual_a_star_location);
+            if !visited_locations.contains(&actual_a_star_location) {
+                visited_locations.insert(actual_a_star_location);
 
-            let neighbours = self.get_neighbours(&current_step.location, &current_step.grid_location, &max_grid_coords);
-            for ((coord, grid), risk) in neighbours {
-                let a_star_coord = self.compute_a_star_coord(&coord, &grid);
-                if coord == end.0 && grid == end.1 {
-                    return current_step.risk + u64::from(risk);
-                }
-                if !visited_locations.contains(&a_star_coord) {
+                let neighbours = self.get_neighbours(&current_step.location, &current_step.grid_location, &max_grid_coords);
+                for ((coord, grid), risk) in neighbours {
+                    let a_star_coord = self.compute_a_star_coord(&coord, &grid);
+                    if coord == end.0 && grid == end.1 {
+                        return current_step.risk + u64::from(risk);
+                    }
+
                     let distance_cost: u64 = ((actual_a_end.0 - a_star_coord.0) + (actual_a_end.1 - a_star_coord.1)).try_into().unwrap();
                     let next_risk: u64 = current_step.risk + u64::from(risk);
                     exploration_front.push(RiskStep{location: coord, grid_location: grid, a_star_risk: next_risk + distance_cost, risk: next_risk});
