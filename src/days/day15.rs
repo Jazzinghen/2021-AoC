@@ -12,8 +12,7 @@ struct RiskStep {
     location: Point,
     grid_location: GridCoord,
     a_star_risk: u64,
-    risk: u64,
-    visit_history: Vec<(Point, u8, u64)>
+    risk: u64
 }
 
 impl Ord for RiskStep {
@@ -140,7 +139,7 @@ impl RiskGrid {
         let max_grid_coords: GridCoord = end.1;
 
         let a_start_start: u64 = ((actual_a_end.0 - actual_a_start.0) + (actual_a_end.1 - actual_a_start.1)).try_into().unwrap();
-        let first_step = RiskStep{location: start.0, grid_location: start.1, a_star_risk: a_start_start, risk: 0u64, visit_history: vec![(start.0, 0u8, 0u64)]};
+        let first_step = RiskStep{location: start.0, grid_location: start.1, a_star_risk: a_start_start, risk: 0u64};
         exploration_front.push(first_step);
 
         while let Some(current_step) = exploration_front.pop() {
@@ -156,9 +155,7 @@ impl RiskGrid {
                 if !visited_locations.contains(&a_star_coord) {
                     let distance_cost: u64 = ((actual_a_end.0 - a_star_coord.0) + (actual_a_end.1 - a_star_coord.1)).try_into().unwrap();
                     let next_risk: u64 = current_step.risk + u64::from(risk);
-                    let mut next_history = current_step.visit_history.clone();
-                    next_history.push((a_star_coord, risk, next_risk));
-                    exploration_front.push(RiskStep{location: coord, grid_location: grid, a_star_risk: next_risk + distance_cost, risk: next_risk, visit_history: next_history});
+                    exploration_front.push(RiskStep{location: coord, grid_location: grid, a_star_risk: next_risk + distance_cost, risk: next_risk});
                 }
             }
         }
