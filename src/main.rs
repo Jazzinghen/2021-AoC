@@ -64,7 +64,7 @@ fn main() {
     let cwd = env::current_dir().unwrap();
     let filename = cwd.join("inputs").join(format!("day{:02}.txt", day_num));
     println!("Reading {}", filename.display());
-    println!("");
+    println!();
     let input = fs::read_to_string(filename).expect("Error while reading");
 
     // Get corresponding function
@@ -77,7 +77,7 @@ fn main() {
         part_one(&input);
         let part1_dur = part1_start.elapsed();
         println!("Took {}", fmt_dur(part1_dur));
-        println!("");
+        println!();
     }
 
     if let Some(part_two) = to_run.1 {

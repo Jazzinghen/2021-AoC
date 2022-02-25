@@ -1,8 +1,8 @@
-use std::collections::{HashMap};
+use std::collections::HashMap;
 
 enum CheckResult {
     Wrong(char),
-    Incomlete(Vec<char>)
+    Incomlete(Vec<char>),
 }
 
 fn syntax_line_check(line: &str) -> CheckResult {
@@ -11,15 +11,15 @@ fn syntax_line_check(line: &str) -> CheckResult {
     for par in line.chars() {
         if parentheses_combo.contains_key(&par) {
             parentheses_stack.push(par);
-        } else {
-            if let Some(pot_open) = parentheses_stack.pop() {
-                let paired_character = parentheses_combo.get(&pot_open).expect("Found an invalid character in the syntax");
-                if par != *paired_character {
-                    return CheckResult::Wrong(par);
-                }
-            } else {
+        } else if let Some(pot_open) = parentheses_stack.pop() {
+            let paired_character = parentheses_combo
+                .get(&pot_open)
+                .expect("Found an invalid character in the syntax");
+            if par != *paired_character {
                 return CheckResult::Wrong(par);
             }
+        } else {
+            return CheckResult::Wrong(par);
         }
     }
     CheckResult::Incomlete(parentheses_stack)
@@ -45,19 +45,27 @@ fn compute_syntax_scores(input: &str) -> (u64, u64) {
     let mut autocomplete_costs = Vec::new();
     for syntax_line in input.split_whitespace() {
         match syntax_line_check(syntax_line) {
-            CheckResult::Wrong(wrong_char) => {syntax_score += error_score.get(&wrong_char).unwrap()},
-            CheckResult::Incomlete(remaining_string) => {autocomplete_costs.push(compute_autocomplete_cost(&remaining_string));}
+            CheckResult::Wrong(wrong_char) => syntax_score += error_score.get(&wrong_char).unwrap(),
+            CheckResult::Incomlete(remaining_string) => {
+                autocomplete_costs.push(compute_autocomplete_cost(&remaining_string));
+            }
         }
     }
 
     autocomplete_costs.sort();
 
-    return (syntax_score, autocomplete_costs[autocomplete_costs.len() / 2]);
+    return (
+        syntax_score,
+        autocomplete_costs[autocomplete_costs.len() / 2],
+    );
 }
 
 pub fn part1(input: &str) {
     let (syntax_error_score, autocomplete_cost) = compute_syntax_scores(input);
-    println!("Syntax error score: {}; Autocomplete cost: {}", syntax_error_score, autocomplete_cost);
+    println!(
+        "Syntax error score: {}; Autocomplete cost: {}",
+        syntax_error_score, autocomplete_cost
+    );
 }
 
 #[cfg(test)]

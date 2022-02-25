@@ -1,27 +1,46 @@
 use std::convert::TryInto;
 
-use itertools::{sorted};
+use itertools::sorted;
 
-fn midpoint_binary_search(sorted_positions: &Vec<u32>, consumption_function: fn(&u32, &u32)->u32) -> u32 {
-    let mut left_location: u32 = *sorted_positions.first().expect("Expecting this vector to be larger than 0");
-    let mut right_location: u32 = *sorted_positions.last().expect("Expecting this vector to be larger than 0");
+fn midpoint_binary_search(
+    sorted_positions: &Vec<u32>,
+    consumption_function: fn(&u32, &u32) -> u32,
+) -> u32 {
+    let mut left_location: u32 = *sorted_positions
+        .first()
+        .expect("Expecting this vector to be larger than 0");
+    let mut right_location: u32 = *sorted_positions
+        .last()
+        .expect("Expecting this vector to be larger than 0");
 
-    let mut left_consumption: u64 = sorted_positions.iter().fold(0u64, |mut sum, val| {sum += u64::from(consumption_function(val, &left_location)); sum});
-    let mut right_consumption: u64 = sorted_positions.iter().fold(0u64, |mut sum, val| {sum += u64::from(consumption_function(val, &right_location)); sum});
+    let mut left_consumption: u64 = sorted_positions.iter().fold(0u64, |mut sum, val| {
+        sum += u64::from(consumption_function(val, &left_location));
+        sum
+    });
+    let mut right_consumption: u64 = sorted_positions.iter().fold(0u64, |mut sum, val| {
+        sum += u64::from(consumption_function(val, &right_location));
+        sum
+    });
 
     while left_consumption != right_consumption {
         let mid_location = left_location + ((right_location - left_location) / 2);
 
         if left_consumption <= right_consumption {
             right_location = mid_location;
-            right_consumption = sorted_positions.iter().fold(0u64, |mut sum, val| {sum += u64::from(consumption_function(val, &right_location)); sum});
+            right_consumption = sorted_positions.iter().fold(0u64, |mut sum, val| {
+                sum += u64::from(consumption_function(val, &right_location));
+                sum
+            });
         } else {
             left_location = if right_location - left_location == 1 {
                 mid_location + 1
             } else {
                 mid_location
             };
-            left_consumption = sorted_positions.iter().fold(0u64, |mut sum, val| {sum += u64::from(consumption_function(val, &left_location)); sum});
+            left_consumption = sorted_positions.iter().fold(0u64, |mut sum, val| {
+                sum += u64::from(consumption_function(val, &left_location));
+                sum
+            });
         }
     }
 
@@ -42,12 +61,19 @@ fn linear_delta(start: &u32, target: &u32) -> u32 {
     return (upped / 2).try_into().unwrap();
 }
 
-fn min_crab_fuel(input: &str, consumption_function: fn(&u32, &u32)->u32) -> u64 {
-    let initial_horizontal = input.split(',').map(|hor| hor.trim().parse::<u32>().expect("Given a non-number as horizontal position!"));
+fn min_crab_fuel(input: &str, consumption_function: fn(&u32, &u32) -> u32) -> u64 {
+    let initial_horizontal = input.split(',').map(|hor| {
+        hor.trim()
+            .parse::<u32>()
+            .expect("Given a non-number as horizontal position!")
+    });
     let sorted_horizontal: Vec<u32> = sorted(initial_horizontal).collect();
 
     let mid_point = midpoint_binary_search(&sorted_horizontal, consumption_function);
-    let fuel_cost = sorted_horizontal.iter().fold(0u64, |mut sum, val| {sum += u64::from(consumption_function(val, &mid_point)); sum});
+    let fuel_cost = sorted_horizontal.iter().fold(0u64, |mut sum, val| {
+        sum += u64::from(consumption_function(val, &mid_point));
+        sum
+    });
 
     return fuel_cost;
 }

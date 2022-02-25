@@ -1,5 +1,5 @@
-use std::convert::{TryInto};
-use std::collections::{HashSet};
+use std::collections::HashSet;
+use std::convert::TryInto;
 use std::fmt;
 
 use itertools::Itertools;
@@ -7,7 +7,7 @@ use itertools::Itertools;
 struct RiskGrid {
     data: Vec<u8>,
     rows: usize,
-    columns: usize
+    columns: usize,
 }
 
 impl RiskGrid {
@@ -25,12 +25,19 @@ impl RiskGrid {
             }
         }
 
-        RiskGrid{data: flat_data, rows: row_count, columns: col_count}
+        RiskGrid {
+            data: flat_data,
+            rows: row_count,
+            columns: col_count,
+        }
     }
 
     pub fn get_risk(&self, location: &(usize, usize)) -> u8 {
         let flat_idx = location.0 * self.columns + location.1;
-        *self.data.get(flat_idx).expect("Provided location is out of the grid bounds!")
+        *self
+            .data
+            .get(flat_idx)
+            .expect("Provided location is out of the grid bounds!")
     }
 
     pub fn find_local_minima(&self) -> Vec<((usize, usize), u8)> {
@@ -138,7 +145,7 @@ impl RiskGrid {
             }
 
             basins.push(basin_size);
-        };
+        }
 
         return basins;
     }
@@ -153,23 +160,26 @@ impl fmt::Display for RiskGrid {
                 let risk_location = (row, col);
                 write!(f, "{} ", self.get_risk(&risk_location))?;
             }
-            writeln!(f, "")?;
-        };
+            writeln!(f)?;
+        }
 
-        writeln!(f, "")
+        writeln!(f)
     }
 }
 
 pub fn part1(input: &str) {
     let risk_grid = RiskGrid::new(input);
     let (_, minima_risk): (Vec<_>, Vec<_>) = risk_grid.find_local_minima().iter().cloned().unzip();
-    let risk_sum: u64 = minima_risk.iter().fold(0u64, |sum, val| sum + u64::from(*val + 1));
+    let risk_sum: u64 = minima_risk
+        .iter()
+        .fold(0u64, |sum, val| sum + u64::from(*val + 1));
     println!("Sum of minima: {}", risk_sum);
 }
 
 pub fn part2(input: &str) {
     let risk_grid = RiskGrid::new(input);
-    let (minima_locations, _): (Vec<_>, Vec<_>) = risk_grid.find_local_minima().iter().cloned().unzip();
+    let (minima_locations, _): (Vec<_>, Vec<_>) =
+        risk_grid.find_local_minima().iter().cloned().unzip();
     let basins = risk_grid.find_basin_sizes(&minima_locations);
     let top_basins = basins.iter().sorted().rev().take(3);
     let basin_area = top_basins.fold(1u64, |total, area| total * area);
@@ -189,8 +199,11 @@ mod tests {
                                  9899965678";
 
         let risk_grid = RiskGrid::new(input_string);
-        let (_, minima_risk): (Vec<_>, Vec<_>) = risk_grid.find_local_minima().iter().cloned().unzip();
-        let risk_sum: u64 = minima_risk.iter().fold(0u64, |sum, val| sum + u64::from(*val + 1));
+        let (_, minima_risk): (Vec<_>, Vec<_>) =
+            risk_grid.find_local_minima().iter().cloned().unzip();
+        let risk_sum: u64 = minima_risk
+            .iter()
+            .fold(0u64, |sum, val| sum + u64::from(*val + 1));
 
         assert_eq!(risk_sum, 15u64);
     }
@@ -204,7 +217,8 @@ mod tests {
                                  9899965678";
 
         let risk_grid = RiskGrid::new(input_string);
-        let (minima_locations, _): (Vec<_>, Vec<_>) = risk_grid.find_local_minima().iter().cloned().unzip();
+        let (minima_locations, _): (Vec<_>, Vec<_>) =
+            risk_grid.find_local_minima().iter().cloned().unzip();
         let basins = risk_grid.find_basin_sizes(&minima_locations);
         let top_basins = basins.iter().sorted().rev().take(3);
         let basin_area = top_basins.fold(1u64, |total, area| total * area);

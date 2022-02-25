@@ -1,26 +1,22 @@
-use std::collections::{HashMap};
+use std::collections::HashMap;
 
 use itertools::{Itertools, MinMaxResult};
 
-use nom::bytes::complete::{tag};
+use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, space0};
-use nom::sequence::{separated_pair, preceded};
-use nom::{IResult};
+use nom::sequence::{preceded, separated_pair};
+use nom::IResult;
 
 // Polymer evolution parser
 fn insertion_rule(input: &str) -> IResult<&str, (&str, &str)> {
-    preceded(space0, separated_pair(
-        alpha1,
-        tag(" -> "),
-        alpha1
-    ))(input)
+    preceded(space0, separated_pair(alpha1, tag(" -> "), alpha1))(input)
 }
 
 #[derive(Debug)]
 struct PolymerData {
     template_polymer: String,
     insertion_rules: HashMap<String, char>,
-    pair_frequencies: HashMap<String, u64>
+    pair_frequencies: HashMap<String, u64>,
 }
 
 impl PolymerData {
@@ -44,7 +40,11 @@ impl PolymerData {
             rules.insert(pair.to_string(), result.chars().next().unwrap());
         }
 
-        PolymerData{template_polymer: polymer_template.to_string(), insertion_rules: rules, pair_frequencies: initial_frequencies}
+        PolymerData {
+            template_polymer: polymer_template.to_string(),
+            insertion_rules: rules,
+            pair_frequencies: initial_frequencies,
+        }
     }
 
     fn step(&mut self) {
@@ -110,14 +110,20 @@ pub fn part1(input: &str) {
     let mut data = PolymerData::new(input);
     data.evolve_polymer(10);
     let (elements_delta, _) = data.compute_elements_delta();
-    println!("Delta between highest and lowest frequency elements after 10 steps: {}", elements_delta);
+    println!(
+        "Delta between highest and lowest frequency elements after 10 steps: {}",
+        elements_delta
+    );
 }
 
 pub fn part2(input: &str) {
     let mut data = PolymerData::new(input);
     data.evolve_polymer(40);
     let (elements_delta, _) = data.compute_elements_delta();
-    println!("Delta between highest and lowest frequency elements after 40 steps: {}", elements_delta);
+    println!(
+        "Delta between highest and lowest frequency elements after 40 steps: {}",
+        elements_delta
+    );
 }
 
 #[cfg(test)]
@@ -157,7 +163,8 @@ mod tests {
         //   - B: 2
         //   - H: 1
         let (delta, freqs) = data.compute_elements_delta();
-        let validation_freqs: HashMap<char, u64> = HashMap::from_iter(vec![('N', 2), ('C', 2), ('B', 2), ('H', 1)]);
+        let validation_freqs: HashMap<char, u64> =
+            HashMap::from_iter(vec![('N', 2), ('C', 2), ('B', 2), ('H', 1)]);
         assert_eq!(freqs, validation_freqs);
         assert_eq!(delta, 1u64);
     }
@@ -193,7 +200,8 @@ mod tests {
         //   - C: 10
         //   - H: 5
         let (delta, freqs) = data.compute_elements_delta();
-        let validation_freqs: HashMap<char, u64> = HashMap::from_iter(vec![('B', 23), ('N', 11), ('C', 10), ('H', 5)]);
+        let validation_freqs: HashMap<char, u64> =
+            HashMap::from_iter(vec![('B', 23), ('N', 11), ('C', 10), ('H', 5)]);
         assert_eq!(freqs, validation_freqs);
         assert_eq!(delta, 18u64);
     }
@@ -229,7 +237,8 @@ mod tests {
         //   - C: 298
         //   - H: 161
         let (delta, freqs) = data.compute_elements_delta();
-        let validation_freqs: HashMap<char, u64> = HashMap::from_iter(vec![('B', 1749), ('N', 865), ('C', 298), ('H', 161)]);
+        let validation_freqs: HashMap<char, u64> =
+            HashMap::from_iter(vec![('B', 1749), ('N', 865), ('C', 298), ('H', 161)]);
         assert_eq!(freqs, validation_freqs);
         assert_eq!(delta, 1588u64);
     }

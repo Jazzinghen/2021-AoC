@@ -1,5 +1,5 @@
-use std::convert::{TryInto};
-use std::collections::{HashSet};
+use std::collections::HashSet;
+use std::convert::TryInto;
 use std::fmt;
 
 use itertools::Itertools;
@@ -10,7 +10,7 @@ struct OctopusGrid {
     data: Vec<u8>,
     rows: usize,
     columns: usize,
-    energy_to_location: [HashSet<Point>; 11]
+    energy_to_location: [HashSet<Point>; 11],
 }
 
 impl OctopusGrid {
@@ -31,7 +31,12 @@ impl OctopusGrid {
             }
         }
 
-        OctopusGrid{data: flat_data, rows: row_count, columns: col_count, energy_to_location: energy_to_location}
+        OctopusGrid {
+            data: flat_data,
+            rows: row_count,
+            columns: col_count,
+            energy_to_location,
+        }
     }
 
     fn compute_flat_idx(&self, location: &Point) -> usize {
@@ -40,17 +45,26 @@ impl OctopusGrid {
 
     pub fn get_energy(&self, location: &Point) -> u8 {
         let flat_idx = self.compute_flat_idx(location);
-        *self.data.get(flat_idx).expect("Provided location is out of the grid bounds!")
+        *self
+            .data
+            .get(flat_idx)
+            .expect("Provided location is out of the grid bounds!")
     }
 
     fn increase_energy(&mut self, location: &Point) {
         let flat_idx = self.compute_flat_idx(location);
-        *self.data.get_mut(flat_idx).expect("Provided location is out of the grid bounds!") += 1u8;
+        *self
+            .data
+            .get_mut(flat_idx)
+            .expect("Provided location is out of the grid bounds!") += 1u8;
     }
 
     fn reset_energy(&mut self, location: &Point) {
         let flat_idx = self.compute_flat_idx(location);
-        *self.data.get_mut(flat_idx).expect("Provided location is out of the grid bounds!") = 0u8;
+        *self
+            .data
+            .get_mut(flat_idx)
+            .expect("Provided location is out of the grid bounds!") = 0u8;
     }
 
     fn get_neighbours(&self, location: &Point) -> HashSet<Point> {
@@ -88,14 +102,15 @@ impl OctopusGrid {
         return neighbours;
     }
 
-    fn step(&mut self) -> u64{
+    fn step(&mut self) -> u64 {
         let mut flashing_octopi: HashSet<Point> = HashSet::new();
 
         self.data.iter_mut().for_each(|octo| *octo += 1);
 
         // Increase energies by one
         for energy in (0..=10).rev().skip(1) {
-            self.energy_to_location[energy+1].extend(self.energy_to_location[energy].clone().iter());
+            self.energy_to_location[energy + 1]
+                .extend(self.energy_to_location[energy].clone().iter());
             self.energy_to_location[energy].clear();
         }
 
@@ -123,7 +138,7 @@ impl OctopusGrid {
     }
 
     pub fn step_for(&mut self, t: usize) -> u64 {
-        (0..t).fold(0u64, | sum, _ | sum + self.step())
+        (0..t).fold(0u64, |sum, _| sum + self.step())
     }
 
     pub fn first_coordinated_flash(&mut self) -> u64 {
@@ -146,20 +161,20 @@ impl fmt::Display for OctopusGrid {
                 let risk_location = (row, col);
                 write!(f, "{} ", self.get_energy(&risk_location))?;
             }
-            writeln!(f, "")?;
-        };
+            writeln!(f)?;
+        }
 
-        writeln!(f, "")?;
+        writeln!(f)?;
         writeln!(f, "Reverse energies lookup: ")?;
         for (energy, locations) in self.energy_to_location.iter().enumerate() {
             write!(f, "{}: ", energy)?;
             for loc in locations {
                 write!(f, "{}, {}; ", loc.0, loc.1)?;
             }
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
 
-        writeln!(f, "")
+        writeln!(f)
     }
 }
 

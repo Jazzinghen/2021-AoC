@@ -1,6 +1,6 @@
-use std::cmp::{Ordering};
-use std::convert::{TryInto};
+use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashSet};
+use std::convert::TryInto;
 use std::fmt;
 
 type Point = (usize, usize);
@@ -12,7 +12,7 @@ struct RiskStep {
     location: Point,
     grid_location: GridCoord,
     a_star_risk: u64,
-    risk: u64
+    risk: u64,
 }
 
 impl Ord for RiskStep {
@@ -38,7 +38,7 @@ impl PartialEq for RiskStep {
 struct RiskGrid {
     data: Vec<u8>,
     rows: usize,
-    columns: usize
+    columns: usize,
 }
 
 impl RiskGrid {
@@ -57,7 +57,11 @@ impl RiskGrid {
             }
         }
 
-        RiskGrid{data: flat_data, rows: row_count, columns: col_count}
+        RiskGrid {
+            data: flat_data,
+            rows: row_count,
+            columns: col_count,
+        }
     }
 
     fn compute_flat_idx(&self, location: &Point) -> usize {
@@ -66,13 +70,21 @@ impl RiskGrid {
 
     fn get_risk(&self, location: &Point, grid_coord: &GridCoord) -> u8 {
         let flat_idx = self.compute_flat_idx(location);
-        let base_risk = self.data.get(flat_idx).expect("Provided location is out of the grid bounds!");
+        let base_risk = self
+            .data
+            .get(flat_idx)
+            .expect("Provided location is out of the grid bounds!");
         let total_risk = base_risk + grid_coord.0 + grid_coord.1;
         let extra = (total_risk / 10u8) * 9u8;
         return total_risk - extra;
     }
 
-    fn get_neighbours(&self, location: &Point, grid_coord: &GridCoord, max_coords: &GridCoord) -> Vec<((Point, GridCoord), u8)> {
+    fn get_neighbours(
+        &self,
+        location: &Point,
+        grid_coord: &GridCoord,
+        max_coords: &GridCoord,
+    ) -> Vec<((Point, GridCoord), u8)> {
         let mut neighbours: Vec<((Point, GridCoord), u8)> = Vec::new();
 
         if location.0 > 0 {
@@ -123,13 +135,17 @@ impl RiskGrid {
     }
 
     fn compute_a_star_coord(&self, grid_space_coord: &Point, grid_coord: &GridCoord) -> Point {
-        let actual_a_star_col= usize::from(grid_coord.1) * self.columns + grid_space_coord.1;
+        let actual_a_star_col = usize::from(grid_coord.1) * self.columns + grid_space_coord.1;
         let actual_a_star_row = usize::from(grid_coord.0) * self.rows + grid_space_coord.0;
 
         (actual_a_star_row, actual_a_star_col)
     }
 
-    pub fn find_lowest_risk_path(&self, start: &(Point, GridCoord), end: &(Point, GridCoord)) -> u64{
+    pub fn find_lowest_risk_path(
+        &self,
+        start: &(Point, GridCoord),
+        end: &(Point, GridCoord),
+    ) -> u64 {
         let mut visited_locations: HashSet<Point> = HashSet::new();
         let mut exploration_front: BinaryHeap<RiskStep> = BinaryHeap::new();
 
@@ -138,25 +154,46 @@ impl RiskGrid {
 
         let max_grid_coords: GridCoord = end.1;
 
-        let a_start_start: u64 = ((actual_a_end.0 - actual_a_start.0) + (actual_a_end.1 - actual_a_start.1)).try_into().unwrap();
-        let first_step = RiskStep{location: start.0, grid_location: start.1, a_star_risk: a_start_start, risk: 0u64};
+        let a_start_start: u64 = ((actual_a_end.0 - actual_a_start.0)
+            + (actual_a_end.1 - actual_a_start.1))
+            .try_into()
+            .unwrap();
+        let first_step = RiskStep {
+            location: start.0,
+            grid_location: start.1,
+            a_star_risk: a_start_start,
+            risk: 0u64,
+        };
         exploration_front.push(first_step);
 
         while let Some(current_step) = exploration_front.pop() {
-            let actual_a_star_location = self.compute_a_star_coord(&current_step.location, &current_step.grid_location);
+            let actual_a_star_location =
+                self.compute_a_star_coord(&current_step.location, &current_step.grid_location);
             if !visited_locations.contains(&actual_a_star_location) {
                 visited_locations.insert(actual_a_star_location);
 
-                let neighbours = self.get_neighbours(&current_step.location, &current_step.grid_location, &max_grid_coords);
+                let neighbours = self.get_neighbours(
+                    &current_step.location,
+                    &current_step.grid_location,
+                    &max_grid_coords,
+                );
                 for ((coord, grid), risk) in neighbours {
                     let a_star_coord = self.compute_a_star_coord(&coord, &grid);
                     if coord == end.0 && grid == end.1 {
                         return current_step.risk + u64::from(risk);
                     }
 
-                    let distance_cost: u64 = ((actual_a_end.0 - a_star_coord.0) + (actual_a_end.1 - a_star_coord.1)).try_into().unwrap();
+                    let distance_cost: u64 = ((actual_a_end.0 - a_star_coord.0)
+                        + (actual_a_end.1 - a_star_coord.1))
+                        .try_into()
+                        .unwrap();
                     let next_risk: u64 = current_step.risk + u64::from(risk);
-                    exploration_front.push(RiskStep{location: coord, grid_location: grid, a_star_risk: next_risk + distance_cost, risk: next_risk});
+                    exploration_front.push(RiskStep {
+                        location: coord,
+                        grid_location: grid,
+                        a_star_risk: next_risk + distance_cost,
+                        risk: next_risk,
+                    });
                 }
             }
         }
@@ -175,9 +212,9 @@ impl fmt::Display for RiskGrid {
                 let risk_location = (row, col);
                 write!(f, "{} ", self.get_risk(&risk_location, &grid_coords))?;
             }
-            writeln!(f, "")?;
-        };
-        writeln!(f, "")
+            writeln!(f)?;
+        }
+        writeln!(f)
     }
 }
 
@@ -186,7 +223,10 @@ pub fn part1(input: &str) {
     let start: Point = (0, 0);
     let end: Point = (risk_grid.rows - 1, risk_grid.columns - 1);
     let grid_coord: GridCoord = (0u8, 0u8);
-    println!("Lowest risk path sum: {}", risk_grid.find_lowest_risk_path(&(start, grid_coord), &(end, grid_coord)));
+    println!(
+        "Lowest risk path sum: {}",
+        risk_grid.find_lowest_risk_path(&(start, grid_coord), &(end, grid_coord))
+    );
 }
 
 pub fn part2(input: &str) {
@@ -195,7 +235,10 @@ pub fn part2(input: &str) {
     let end: Point = (risk_grid.rows - 1, risk_grid.columns - 1);
     let start_grid_coord: GridCoord = (0u8, 0u8);
     let end_grid_coord: GridCoord = (4u8, 4u8);
-    println!("Lowest risk path sum: {}", risk_grid.find_lowest_risk_path(&(start, start_grid_coord), &(end, end_grid_coord)));
+    println!(
+        "Lowest risk path sum: {}",
+        risk_grid.find_lowest_risk_path(&(start, start_grid_coord), &(end, end_grid_coord))
+    );
 }
 
 #[cfg(test)]
@@ -220,7 +263,10 @@ mod tests {
         let end: Point = (risk_grid.rows - 1, risk_grid.columns - 1);
         let grid_coord: GridCoord = (0u8, 0u8);
 
-        assert_eq!(risk_grid.find_lowest_risk_path(&(start, grid_coord), &(end, grid_coord)), 40u64);
+        assert_eq!(
+            risk_grid.find_lowest_risk_path(&(start, grid_coord), &(end, grid_coord)),
+            40u64
+        );
     }
 
     #[test]
@@ -242,6 +288,9 @@ mod tests {
         let start_grid_coord: GridCoord = (0u8, 0u8);
         let end_grid_coord: GridCoord = (4u8, 4u8);
 
-        assert_eq!(risk_grid.find_lowest_risk_path(&(start, start_grid_coord), &(end, end_grid_coord)), 315u64);
+        assert_eq!(
+            risk_grid.find_lowest_risk_path(&(start, start_grid_coord), &(end, end_grid_coord)),
+            315u64
+        );
     }
 }

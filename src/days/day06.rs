@@ -3,9 +3,12 @@ use std::{collections::VecDeque, vec};
 fn lanternfish_evolution(input: &str, time_horizon: u16) -> u64 {
     let start_lives = input.split(',');
 
-    let mut starting_lifetimes_count = vec![0u64;9];
+    let mut starting_lifetimes_count = vec![0u64; 9];
     for lifetime in start_lives {
-        let life_num: usize = lifetime.trim().parse().expect("We got a string in the CSV that's not a number");
+        let life_num: usize = lifetime
+            .trim()
+            .parse()
+            .expect("We got a string in the CSV that's not a number");
         starting_lifetimes_count[life_num] += 1;
     }
 

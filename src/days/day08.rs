@@ -3,23 +3,22 @@ use std::convert::TryFrom;
 use std::iter::FromIterator;
 
 use nom::bytes::complete::tag;
-use nom::character::complete::{multispace1, alphanumeric1};
-use nom::multi::{separated_list1};
+use nom::character::complete::{alphanumeric1, multispace1};
+use nom::combinator::map;
+use nom::multi::separated_list1;
 use nom::sequence::separated_pair;
-use nom::combinator::{map};
 use nom::IResult;
 
 fn display(input: &str) -> IResult<&str, (Vec<&str>, Vec<&str>)> {
     let parser = separated_pair(
         separated_list1(multispace1, alphanumeric1),
         tag(" | "),
-        separated_list1(multispace1, alphanumeric1)
+        separated_list1(multispace1, alphanumeric1),
     );
     map(parser, |s| {
         // FIXME: unwrap() may panic if the value is out of range
         (s.0, s.1)
-    })
-    (input)
+    })(input)
 }
 
 fn cypher_crack(cypher: Vec<&str>, digits: Vec<&str>) -> u32 {
@@ -32,12 +31,12 @@ fn cypher_crack(cypher: Vec<&str>, digits: Vec<&str>) -> u32 {
     // arithmetic to get the important bits to create the other values
     for digit_code in cypher {
         match digit_code.len() {
-            2 => {mappings[1].extend(digit_code.chars())},
-            3 => {mappings[7].extend(digit_code.chars())},
-            4 => {mappings[4].extend(digit_code.chars())},
-            5 => {potential_five.push(HashSet::from_iter(digit_code.chars()))},
-            6 => {potential_six.push(HashSet::from_iter(digit_code.chars()))},
-            7 => {mappings[8].extend(digit_code.chars())},
+            2 => mappings[1].extend(digit_code.chars()),
+            3 => mappings[7].extend(digit_code.chars()),
+            4 => mappings[4].extend(digit_code.chars()),
+            5 => potential_five.push(HashSet::from_iter(digit_code.chars())),
+            6 => potential_six.push(HashSet::from_iter(digit_code.chars())),
+            7 => mappings[8].extend(digit_code.chars()),
             _ => {}
         }
     }
@@ -49,7 +48,11 @@ fn cypher_crack(cypher: Vec<&str>, digits: Vec<&str>) -> u32 {
             mappings[9].extend(six_lines);
             nine_idx = idx;
             let lower_left_set: Vec<_> = mappings[8].difference(&mappings[9]).collect();
-            assert_eq!(lower_left_set.len(), 1, "We should have a single code in the difference between 8 and 9!");
+            assert_eq!(
+                lower_left_set.len(),
+                1,
+                "We should have a single code in the difference between 8 and 9!"
+            );
             lower_left_code.insert(*lower_left_set[0]);
         }
     }
@@ -76,10 +79,14 @@ fn cypher_crack(cypher: Vec<&str>, digits: Vec<&str>) -> u32 {
     potential_five.swap_remove(five_idx);
 
     let centre_code_data: Vec<_> = mappings[8].difference(&mappings[0]).collect();
-    assert_eq!(centre_code_data.len(), 1, "We should have a single code in the difference between 8 and 0!");
+    assert_eq!(
+        centre_code_data.len(),
+        1,
+        "We should have a single code in the difference between 8 and 0!"
+    );
     let upper_left_data: Vec<_> = mappings[4].difference(&mappings[1]).collect();
     let upper_left_code = if upper_left_data[0] == centre_code_data[0] {
-       *upper_left_data[1]
+        *upper_left_data[1]
     } else {
         *upper_left_data[0]
     };
@@ -124,7 +131,11 @@ fn lcd_simple_digit_count(input: &str) -> u64 {
         let (_, (_, digits)) = display(line.trim()).expect("Something went super wrong!");
         for digit_data in digits {
             let activation_count = digit_data.len();
-            if activation_count == 2 || activation_count == 3 || activation_count == 4 || activation_count == 7 {
+            if activation_count == 2
+                || activation_count == 3
+                || activation_count == 4
+                || activation_count == 7
+            {
                 count += 1;
             }
         }
@@ -153,7 +164,7 @@ pub fn part1(input: &str) {
 }
 
 pub fn part2(input: &str) {
-    let decrypted_sum= output_decrypt_sum(input);
+    let decrypted_sum = output_decrypt_sum(input);
     println!("Sum of all the encrypted values: {}", decrypted_sum);
 }
 
@@ -163,7 +174,8 @@ mod tests {
 
     #[test]
     fn simple_digits_count() {
-        let input_string = "be cfbegad cbdgef fgaecd cgeb fdcge agebfd fecdb fabcd edb | fdgacbe cefdb cefbgd gcbe
+        let input_string =
+            "be cfbegad cbdgef fgaecd cgeb fdcge agebfd fecdb fabcd edb | fdgacbe cefdb cefbgd gcbe
         edbfga begcd cbg gc gcadebf fbgde acbgfd abcde gfcbed gfec | fcgedb cgb dgebacf gc
         fgaebd cg bdaec gdafb agbcfd gdcbef bgcad gfac gcb cdgabef | cg cg fdcagb cbg
         fbegcd cbd adcefb dageb afcb bc aefdc ecdab fgdeca fcdbega | efabcd cedba gadfec cb
@@ -181,7 +193,8 @@ mod tests {
 
     #[test]
     fn encrypted_values_sum() {
-        let input_string = "be cfbegad cbdgef fgaecd cgeb fdcge agebfd fecdb fabcd edb | fdgacbe cefdb cefbgd gcbe
+        let input_string =
+            "be cfbegad cbdgef fgaecd cgeb fdcge agebfd fecdb fabcd edb | fdgacbe cefdb cefbgd gcbe
         edbfga begcd cbg gc gcadebf fbgde acbgfd abcde gfcbed gfec | fcgedb cgb dgebacf gc
         fgaebd cg bdaec gdafb agbcfd gdcbef bgcad gfac gcb cdgabef | cg cg fdcagb cbg
         fbegcd cbd adcefb dageb afcb bc aefdc ecdab fgdeca fcdbega | efabcd cedba gadfec cb

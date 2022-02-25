@@ -1,29 +1,26 @@
-use std::collections::{HashMap, HashSet, VecDeque, BTreeMap};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::convert::TryFrom;
 
-use nom::bytes::complete::{tag};
-use nom::character::complete::{one_of, digit1, space0};
-use nom::sequence::{separated_pair, preceded};
-use nom::branch::{alt};
+use nom::branch::alt;
+use nom::bytes::complete::tag;
+use nom::character::complete::{digit1, one_of, space0};
+use nom::sequence::{preceded, separated_pair};
 use nom::{IResult, ParseTo};
 
 // Activation instructions parsers
 fn point_location(input: &str) -> IResult<&str, ActivationInstruction> {
-    let (rem_input, (x, y)) = separated_pair(
-        digit1,
-        tag(","),
-        digit1
-    )(input)?;
+    let (rem_input, (x, y)) = separated_pair(digit1, tag(","), digit1)(input)?;
 
-    Ok((rem_input, ActivationInstruction::Point((x.parse_to().unwrap(), y.parse_to().unwrap()))))
+    Ok((
+        rem_input,
+        ActivationInstruction::Point((x.parse_to().unwrap(), y.parse_to().unwrap())),
+    ))
 }
 
 fn fold_instruction(input: &str) -> IResult<&str, ActivationInstruction> {
     let (useful_input, _) = tag("fold along ")(input)?;
-    let (rem_input, (direction, coord)) = separated_pair(
-        one_of("xy"),
-        tag("="),
-        digit1)(useful_input)?;
+    let (rem_input, (direction, coord)) =
+        separated_pair(one_of("xy"), tag("="), digit1)(useful_input)?;
 
     let fold = if direction == 'x' {
         OrigamiFold::Vertical(coord.parse_to().unwrap())
@@ -35,22 +32,21 @@ fn fold_instruction(input: &str) -> IResult<&str, ActivationInstruction> {
 }
 
 fn activation_instruction(input: &str) -> IResult<&str, ActivationInstruction> {
-    preceded(space0,
-        alt((point_location, fold_instruction)))(input)
+    preceded(space0, alt((point_location, fold_instruction)))(input)
 }
 
 // Folding instructions
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum OrigamiFold {
     Vertical(usize),
-    Horizontal(usize)
+    Horizontal(usize),
 }
 
 // Folding instructions
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum ActivationInstruction {
     Point((usize, usize)),
-    Fold(OrigamiFold)
+    Fold(OrigamiFold),
 }
 
 #[derive(Debug)]
@@ -80,20 +76,24 @@ impl ActivationData {
                     } else {
                         cols_init.insert(x, HashSet::from([y]));
                     }
-                },
+                }
                 ActivationInstruction::Fold(f) => {
                     fold_q.push_back(f);
                 }
             }
-        };
+        }
 
-        ActivationData{rows: rows_init, cols: cols_init, folding_queue: fold_q}
+        ActivationData {
+            rows: rows_init,
+            cols: cols_init,
+            folding_queue: fold_q,
+        }
     }
 
     pub fn fold_once(&mut self) {
         match self.folding_queue.pop_front().unwrap() {
-            OrigamiFold::Horizontal(row) => {self.horizontal_fold(row)},
-            OrigamiFold::Vertical(col) => {self.vertical_fold(col)}
+            OrigamiFold::Horizontal(row) => self.horizontal_fold(row),
+            OrigamiFold::Vertical(col) => self.vertical_fold(col),
         }
     }
 
@@ -188,7 +188,9 @@ impl ActivationData {
     }
 
     pub fn get_unique_points(self) -> u64 {
-        self.rows.iter().fold(0u64, |sum, (_, points)| sum + u64::try_from(points.len()).unwrap())
+        self.rows.iter().fold(0u64, |sum, (_, points)| {
+            sum + u64::try_from(points.len()).unwrap()
+        })
     }
 
     pub fn print_activation(self) {

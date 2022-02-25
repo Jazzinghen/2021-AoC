@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use nom::bytes::complete::tag;
+use nom::combinator::map;
 use nom::sequence::separated_pair;
-use nom::combinator::{map};
 use nom::IResult;
 
 use crate::aoc_lib::jazz_parser;
@@ -11,18 +11,18 @@ use crate::aoc_lib::jazz_parser;
 enum Direction {
     Horizontal,
     Vertical,
-    Diagonal
+    Diagonal,
 }
 
 #[derive(PartialEq, Debug, Default, Clone, Copy)]
 struct Point {
     x: usize,
-    y: usize
+    y: usize,
 }
 
 impl Point {
     fn new(x: usize, y: usize) -> Point {
-        Point {x: x, y: y}
+        Point { x, y }
     }
 }
 
@@ -30,7 +30,7 @@ impl Point {
 struct Line {
     start: Point,
     end: Point,
-    direction: Direction
+    direction: Direction,
 }
 
 impl Line {
@@ -49,7 +49,7 @@ impl Line {
                 } else {
                     (start, end)
                 }
-            },
+            }
             _ => {
                 if start.x > end.x {
                     (end, start)
@@ -70,37 +70,34 @@ impl Line {
             } else {
                 actual_end.y - actual_start.y
             };
-            assert_eq!(x_delta, y_delta, "Diagonal lines should have a 45 degree slope!");
+            assert_eq!(
+                x_delta, y_delta,
+                "Diagonal lines should have a 45 degree slope!"
+            );
         }
 
-        Line {start: *actual_start, end: *actual_end, direction: line_dir}
+        Line {
+            start: *actual_start,
+            end: *actual_end,
+            direction: line_dir,
+        }
     }
 }
 
 fn point(input: &str) -> IResult<&str, Point> {
-    let parser = separated_pair(
-        jazz_parser::usize,
-        tag(","),
-        jazz_parser::usize
-    );
+    let parser = separated_pair(jazz_parser::usize, tag(","), jazz_parser::usize);
     map(parser, |s| {
         // FIXME: unwrap() may panic if the value is out of range
         Point::new(s.0, s.1)
-    })
-    (input)
+    })(input)
 }
 
 fn segment(input: &str) -> IResult<&str, Line> {
-    let parser = separated_pair(
-        point,
-        tag(" -> "),
-        point
-    );
+    let parser = separated_pair(point, tag(" -> "), point);
     map(parser, |s| {
         // FIXME: unwrap() may panic if the value is out of range
         Line::new(&s.0, &s.1)
-    })
-    (input)
+    })(input)
 }
 
 pub fn part1(input: &str) {
@@ -124,23 +121,23 @@ fn intersection_check(input: &str, enable_diagonals: bool) -> i32 {
 
         match segment.direction {
             Direction::Horizontal => {
-                for col in segment.start.x ..= segment.end.x {
+                for col in segment.start.x..=segment.end.x {
                     let int_count = occupation_map.entry((col, segment.end.y)).or_insert(0);
                     *int_count += 1;
                     if *int_count == 2 {
                         intersecting_points += 1;
                     }
                 }
-            },
+            }
             Direction::Vertical => {
-                for row in segment.start.y ..= segment.end.y {
+                for row in segment.start.y..=segment.end.y {
                     let int_count = occupation_map.entry((segment.end.x, row)).or_insert(0);
                     *int_count += 1;
                     if *int_count == 2 {
                         intersecting_points += 1;
                     }
                 }
-            },
+            }
             Direction::Diagonal => {
                 if enable_diagonals {
                     let mut row = segment.start.y;

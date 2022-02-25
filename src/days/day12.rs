@@ -2,23 +2,18 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryFrom;
 
 use nom::bytes::complete::tag;
-use nom::character::complete::{alphanumeric1};
+use nom::character::complete::alphanumeric1;
+use nom::combinator::map;
 use nom::sequence::separated_pair;
-use nom::combinator::{map};
 use nom::IResult;
 
 // Edge parser
 fn edge(input: &str) -> IResult<&str, (&str, &str)> {
-    let parser = separated_pair(
-        alphanumeric1,
-        tag("-"),
-        alphanumeric1
-    );
+    let parser = separated_pair(alphanumeric1, tag("-"), alphanumeric1);
     map(parser, |s| {
         // FIXME: unwrap() may panic if the value is out of range
         (s.0, s.1)
-    })
-    (input)
+    })(input)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -26,13 +21,13 @@ enum CaveType {
     Start,
     End,
     Small(String),
-    Big(String)
+    Big(String),
 }
 
 #[derive(Debug)]
 struct CaveNetwork {
     edges: HashMap<String, Vec<CaveType>>,
-    small_caves: HashSet<String>
+    small_caves: HashSet<String>,
 }
 
 impl CaveNetwork {
@@ -46,7 +41,10 @@ impl CaveNetwork {
                 CaveType::Start
             } else if end.eq("end") {
                 CaveType::End
-            } else if end.chars().fold(true, |is_lowercase, c| is_lowercase && c.is_lowercase()) {
+            } else if end
+                .chars()
+                .fold(true, |is_lowercase, c| is_lowercase && c.is_lowercase())
+            {
                 small_set.insert(end.to_string());
                 CaveType::Small(end.to_owned())
             } else {
@@ -57,7 +55,7 @@ impl CaveNetwork {
                 match edge_map.get_mut(start) {
                     Some(map_entry) => {
                         map_entry.push(end_type);
-                    },
+                    }
                     None => {
                         edge_map.insert(start.to_owned(), vec![end_type]);
                     }
@@ -68,7 +66,10 @@ impl CaveNetwork {
                 CaveType::Start
             } else if start.eq("end") {
                 CaveType::End
-            } else if start.chars().fold(true, |is_lowercase, c| is_lowercase && c.is_lowercase()) {
+            } else if start
+                .chars()
+                .fold(true, |is_lowercase, c| is_lowercase && c.is_lowercase())
+            {
                 small_set.insert(start.to_string());
                 CaveType::Small(start.to_owned())
             } else {
@@ -79,7 +80,7 @@ impl CaveNetwork {
                 match edge_map.get_mut(end) {
                     Some(map_entry) => {
                         map_entry.push(start_type);
-                    },
+                    }
                     None => {
                         edge_map.insert(end.to_owned(), vec![start_type]);
                     }
@@ -87,7 +88,10 @@ impl CaveNetwork {
             }
         }
 
-        return CaveNetwork{edges: edge_map, small_caves: small_set};
+        return CaveNetwork {
+            edges: edge_map,
+            small_caves: small_set,
+        };
     }
 
     fn find_unique_paths(&self, repeatable_cave: &str) -> HashSet<String> {
@@ -110,7 +114,7 @@ impl CaveNetwork {
                         debug_path.push(vec!["start".to_string()]);
                         visit_queue.push_back((path, next_cave.to_owned()));
                     }
-                },
+                }
                 (path, CaveType::End) => {
                     let completed_path = debug_path.get_mut(path).unwrap();
                     completed_path.push("end".to_string());
@@ -122,7 +126,7 @@ impl CaveNetwork {
                         }
                     }
                     found_paths.insert(path_string);
-                },
+                }
                 (path, CaveType::Small(cave_name)) => {
                     let current_visit_path = path_small_caves_visit.get_mut(path).unwrap();
                     if !current_visit_path.contains(&cave_name) {
@@ -141,14 +145,15 @@ impl CaveNetwork {
                         for next_cave in next_caves.iter().skip(1) {
                             let new_path_id = path_small_caves_visit.len();
                             visit_queue.push_back((new_path_id, next_cave.to_owned()));
-                            path_small_caves_visit.push(path_small_caves_visit.get(path).unwrap().clone());
+                            path_small_caves_visit
+                                .push(path_small_caves_visit.get(path).unwrap().clone());
                             debug_path.push(debug_path.get(path).unwrap().clone());
                             path_repeated_cave.push(*path_repeated_cave.get(path).unwrap());
                         }
                     } else {
                         debug_path.get_mut(path).unwrap().push("fail".to_string());
                     }
-                },
+                }
                 (path, CaveType::Big(cave_name)) => {
                     let next_caves = self.edges.get(&cave_name).unwrap();
                     visit_queue.push_back((path, next_caves.first().unwrap().clone()));
@@ -157,7 +162,8 @@ impl CaveNetwork {
                     for next_cave in next_caves.iter().skip(1) {
                         let new_path_id = path_small_caves_visit.len();
                         visit_queue.push_back((new_path_id, next_cave.to_owned()));
-                        path_small_caves_visit.push(path_small_caves_visit.get(path).unwrap().clone());
+                        path_small_caves_visit
+                            .push(path_small_caves_visit.get(path).unwrap().clone());
                         debug_path.push(debug_path.get(path).unwrap().clone());
                         path_repeated_cave.push(*path_repeated_cave.get(path).unwrap());
                     }
@@ -187,7 +193,7 @@ impl CaveNetwork {
         if allow_repetition {
             for cave in self.small_caves.iter() {
                 total_paths.extend(self.find_unique_paths(&cave).iter().map(|a| a.clone()));
-            };
+            }
         } else {
             total_paths = self.find_unique_paths("");
         }
@@ -204,7 +210,10 @@ pub fn part1(input: &str) {
 pub fn part2(input: &str) {
     let cave_net = CaveNetwork::new(input);
     let path_count = cave_net.find_paths(true);
-    println!("Amount of unique paths to the exit considering repeating caves: {}", path_count);
+    println!(
+        "Amount of unique paths to the exit considering repeating caves: {}",
+        path_count
+    );
 }
 
 #[cfg(test)]
