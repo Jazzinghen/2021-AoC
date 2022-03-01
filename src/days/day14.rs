@@ -102,7 +102,7 @@ impl PolymerData {
             panic!("For some reason we didn't find a min and max in the values!");
         }
 
-        return (delta, frequencies);
+        (delta, frequencies)
     }
 }
 

@@ -40,9 +40,9 @@ pub fn part1(input: &str) {
 
 pub fn check_for_one(binary_value: &str, bit_pos: usize) -> Option<bool> {
     match binary_value.chars().nth(bit_pos).unwrap_or('x') {
-        '1' => return Some(true),
-        '0' => return Some(false),
-        _ => return None,
+        '1' => Some(true),
+        '0' => Some(false),
+        _ => None,
     }
 }
 

@@ -41,10 +41,7 @@ impl CaveNetwork {
                 CaveType::Start
             } else if end.eq("end") {
                 CaveType::End
-            } else if end
-                .chars()
-                .fold(true, |is_lowercase, c| is_lowercase && c.is_lowercase())
-            {
+            } else if end.chars().all(|c| c.is_lowercase()) {
                 small_set.insert(end.to_string());
                 CaveType::Small(end.to_owned())
             } else {
@@ -66,10 +63,7 @@ impl CaveNetwork {
                 CaveType::Start
             } else if start.eq("end") {
                 CaveType::End
-            } else if start
-                .chars()
-                .fold(true, |is_lowercase, c| is_lowercase && c.is_lowercase())
-            {
+            } else if start.chars().all(|c| c.is_lowercase()) {
                 small_set.insert(start.to_string());
                 CaveType::Small(start.to_owned())
             } else {
@@ -88,10 +82,10 @@ impl CaveNetwork {
             }
         }
 
-        return CaveNetwork {
+        CaveNetwork {
             edges: edge_map,
             small_caves: small_set,
-        };
+        }
     }
 
     fn find_unique_paths(&self, repeatable_cave: &str) -> HashSet<String> {
@@ -130,9 +124,8 @@ impl CaveNetwork {
                 (path, CaveType::Small(cave_name)) => {
                     let current_visit_path = path_small_caves_visit.get_mut(path).unwrap();
                     if !current_visit_path.contains(&cave_name) {
-                        if !cave_name.eq(repeatable_cave) {
-                            current_visit_path.insert(cave_name.to_owned());
-                        } else if *path_repeated_cave.get(path).unwrap() {
+                        if !cave_name.eq(repeatable_cave) || *path_repeated_cave.get(path).unwrap()
+                        {
                             current_visit_path.insert(cave_name.to_owned());
                         } else {
                             *path_repeated_cave.get_mut(path).unwrap() = true;
@@ -171,33 +164,19 @@ impl CaveNetwork {
             };
         }
 
-        /*
-        println!("Found paths ({} lead to the end): ", found_paths.len());
-        for (path_id, cave_list) in debug_path.iter().enumerate() {
-            print!("Path {}: ", path_id);
-            for (idx, cave) in cave_list.iter().enumerate() {
-                if idx < cave_list.len() - 1 {
-                    print!("{} -> ", cave);
-                } else {
-                    println!("{}", cave);
-                }
-            }
-        }
-        */
-
-        return found_paths;
+        found_paths
     }
 
     pub fn find_paths(&self, allow_repetition: bool) -> u64 {
         let mut total_paths: HashSet<String> = HashSet::new();
         if allow_repetition {
             for cave in self.small_caves.iter() {
-                total_paths.extend(self.find_unique_paths(&cave).iter().map(|a| a.clone()));
+                total_paths.extend(self.find_unique_paths(cave).iter().cloned());
             }
         } else {
             total_paths = self.find_unique_paths("");
         }
-        return u64::try_from(total_paths.len()).unwrap();
+        u64::try_from(total_paths.len()).unwrap()
     }
 }
 

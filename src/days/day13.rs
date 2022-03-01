@@ -98,7 +98,7 @@ impl ActivationData {
     }
 
     pub fn fold_all(&mut self) {
-        while self.folding_queue.len() > 0 {
+        while !self.folding_queue.is_empty() {
             self.fold_once();
         }
     }
@@ -111,14 +111,11 @@ impl ActivationData {
 
         for (col_idx, points) in self.cols.range_mut(col..=max_col) {
             let target_col_idx = col * 2 - col_idx;
-            moved_data_cols.insert(target_col_idx, points.iter().map(|i| *i).collect());
+            moved_data_cols.insert(target_col_idx, points.iter().cloned().collect());
             removed_cols.push(*col_idx);
 
             for p in points.iter() {
-                if !moved_data_rows.contains_key(p) {
-                    moved_data_rows.insert(*p, Vec::new());
-                }
-                let target_row = moved_data_rows.get_mut(p).unwrap();
+                let target_row = moved_data_rows.entry(*p).or_insert_with(Vec::new);
                 target_row.push((*col_idx, target_col_idx));
             }
         }
@@ -128,11 +125,7 @@ impl ActivationData {
         }
 
         for (new_col_idx, points) in moved_data_cols {
-            if !self.cols.contains_key(&new_col_idx) {
-                self.cols.insert(new_col_idx, HashSet::new());
-            }
-
-            let target_col = self.cols.get_mut(&new_col_idx).unwrap();
+            let target_col = self.cols.entry(new_col_idx).or_insert_with(HashSet::new);
             target_col.extend(points.iter());
         }
 
@@ -153,14 +146,11 @@ impl ActivationData {
 
         for (row_idx, points) in self.rows.range_mut(row..=max_row) {
             let target_row_idx = row * 2 - row_idx;
-            moved_data_rows.insert(target_row_idx, points.iter().map(|i| *i).collect());
+            moved_data_rows.insert(target_row_idx, points.iter().cloned().collect());
             removed_rows.push(*row_idx);
 
             for p in points.iter() {
-                if !moved_data_cols.contains_key(p) {
-                    moved_data_cols.insert(*p, Vec::new());
-                }
-                let target_col = moved_data_cols.get_mut(p).unwrap();
+                let target_col = moved_data_cols.entry(*p).or_insert_with(Vec::new);
                 target_col.push((*row_idx, target_row_idx));
             }
         }
@@ -170,11 +160,7 @@ impl ActivationData {
         }
 
         for (new_row_idx, points) in moved_data_rows {
-            if !self.rows.contains_key(&new_row_idx) {
-                self.rows.insert(new_row_idx, HashSet::new());
-            }
-
-            let target_row = self.rows.get_mut(&new_row_idx).unwrap();
+            let target_row = self.rows.entry(new_row_idx).or_insert_with(HashSet::new);
             target_row.extend(points.iter());
         }
 

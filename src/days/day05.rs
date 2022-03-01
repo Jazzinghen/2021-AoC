@@ -163,7 +163,7 @@ fn intersection_check(input: &str, enable_diagonals: bool) -> i32 {
         }
     }
 
-    return intersecting_points;
+    intersecting_points
 }
 
 #[cfg(test)]

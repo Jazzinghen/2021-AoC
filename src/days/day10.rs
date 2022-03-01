@@ -26,17 +26,17 @@ fn syntax_line_check(line: &str) -> CheckResult {
 }
 
 // This function takes the remaining, incomplete, part of a syntax line and computes the autocompletion score
-fn compute_autocomplete_cost(input: &Vec<char>) -> u64 {
+fn compute_autocomplete_cost(input: &[char]) -> u64 {
     let autocomplete_costs = HashMap::from([('(', 1u64), ('[', 2u64), ('{', 3u64), ('<', 4u64)]);
-    let mut autocomplete_stack = input.clone();
+    let autocomplete_stack = input.iter().rev();
     let mut autocomplete_cost = 0u64;
 
-    while let Some(curr_open) = autocomplete_stack.pop() {
+    for curr_open in autocomplete_stack {
         autocomplete_cost *= 5;
-        autocomplete_cost += autocomplete_costs.get(&curr_open).unwrap();
+        autocomplete_cost += autocomplete_costs.get(curr_open).unwrap();
     }
 
-    return autocomplete_cost;
+    autocomplete_cost
 }
 
 fn compute_syntax_scores(input: &str) -> (u64, u64) {
@@ -52,12 +52,12 @@ fn compute_syntax_scores(input: &str) -> (u64, u64) {
         }
     }
 
-    autocomplete_costs.sort();
+    autocomplete_costs.sort_unstable();
 
-    return (
+    (
         syntax_score,
         autocomplete_costs[autocomplete_costs.len() / 2],
-    );
+    )
 }
 
 pub fn part1(input: &str) {

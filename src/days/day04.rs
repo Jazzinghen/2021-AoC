@@ -12,7 +12,7 @@ struct BingoBoard {
 impl BingoBoard {
     fn final_score(&self, last_value: &usize) -> usize {
         let mut board_score: usize = 0;
-        for (value, _) in &self.value_to_location {
+        for value in self.value_to_location.keys() {
             board_score += value;
         }
 

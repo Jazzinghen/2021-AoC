@@ -19,7 +19,7 @@ fn lanternfish_evolution(input: &str, time_horizon: u16) -> u64 {
         lives_count[6] += lives_count[8];
     }
 
-    return lives_count.into_iter().sum();
+    lives_count.into_iter().sum()
 }
 
 pub fn part1(input: &str) {

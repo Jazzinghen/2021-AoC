@@ -76,7 +76,7 @@ impl RiskGrid {
             .expect("Provided location is out of the grid bounds!");
         let total_risk = base_risk + grid_coord.0 + grid_coord.1;
         let extra = (total_risk / 10u8) * 9u8;
-        return total_risk - extra;
+        total_risk - extra
     }
 
     fn get_neighbours(
@@ -131,7 +131,7 @@ impl RiskGrid {
             neighbours.push(((neigh_coord, neigh_grid), neigh_risk));
         };
 
-        return neighbours;
+        neighbours
     }
 
     fn compute_a_star_coord(&self, grid_space_coord: &Point, grid_coord: &GridCoord) -> Point {

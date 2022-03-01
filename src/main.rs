@@ -11,13 +11,13 @@ mod days;
 fn fmt_time(ms: f64) -> String {
     if ms <= 1.0 {
         let micro_sec = ms * 1000.0;
-        return String::from(format!("{}µs", micro_sec.round()));
+        return format!("{}µs", micro_sec.round());
     }
 
     if ms < 1000.0 {
         let whole_ms = ms.floor();
         let rem_ms = ms - whole_ms;
-        return String::from(format!("{}ms ", whole_ms) + &fmt_time(rem_ms));
+        return format!("{}ms ", whole_ms) + &fmt_time(rem_ms);
     }
 
     let sec: f64 = ms / 1000.0;
@@ -33,7 +33,7 @@ fn fmt_time(ms: f64) -> String {
 }
 
 fn fmt_dur(dur: Duration) -> String {
-    return fmt_time(dur.as_secs_f64() * 1000.0);
+    fmt_time(dur.as_secs_f64() * 1000.0)
 }
 
 fn main() {

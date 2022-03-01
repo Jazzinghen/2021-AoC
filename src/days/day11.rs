@@ -99,7 +99,7 @@ impl OctopusGrid {
         neighbours.extend(neigh_cross_product);
         neighbours.remove(location);
 
-        return neighbours;
+        neighbours
     }
 
     fn step(&mut self) -> u64 {
@@ -114,9 +114,9 @@ impl OctopusGrid {
             self.energy_to_location[energy].clear();
         }
 
-        while self.energy_to_location[10].len() > 0 {
+        while !self.energy_to_location[10].is_empty() {
             for flashing_octo in &self.energy_to_location[10].clone() {
-                let close_octos = self.get_neighbours(&flashing_octo);
+                let close_octos = self.get_neighbours(flashing_octo);
                 for neighbour in close_octos {
                     let nei_energy: usize = self.get_energy(&neighbour).into();
                     if nei_energy < 10 {
@@ -131,10 +131,10 @@ impl OctopusGrid {
         }
 
         for spent_octopus in flashing_octopi.iter() {
-            self.reset_energy(&spent_octopus);
+            self.reset_energy(spent_octopus);
         }
 
-        return flashing_octopi.len().try_into().unwrap();
+        flashing_octopi.len().try_into().unwrap()
     }
 
     pub fn step_for(&mut self, t: usize) -> u64 {
@@ -148,7 +148,7 @@ impl OctopusGrid {
             step += 1;
         }
 
-        return step;
+        step
     }
 }
 

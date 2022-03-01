@@ -119,7 +119,7 @@ fn cypher_crack(cypher: Vec<&str>, digits: Vec<&str>) -> u32 {
         }
     }
 
-    return final_value;
+    final_value
 }
 
 fn lcd_simple_digit_count(input: &str) -> u64 {
@@ -141,7 +141,7 @@ fn lcd_simple_digit_count(input: &str) -> u64 {
         }
     }
 
-    return count;
+    count
 }
 
 fn output_decrypt_sum(input: &str) -> u64 {
@@ -155,7 +155,7 @@ fn output_decrypt_sum(input: &str) -> u64 {
         final_sum += u64::from(encoded_value);
     }
 
-    return final_sum;
+    final_sum
 }
 
 pub fn part1(input: &str) {

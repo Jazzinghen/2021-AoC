@@ -3,7 +3,7 @@ use std::convert::TryInto;
 use itertools::sorted;
 
 fn midpoint_binary_search(
-    sorted_positions: &Vec<u32>,
+    sorted_positions: &[u32],
     consumption_function: fn(&u32, &u32) -> u32,
 ) -> u32 {
     let mut left_location: u32 = *sorted_positions
@@ -44,7 +44,7 @@ fn midpoint_binary_search(
         }
     }
 
-    return left_location;
+    left_location
 }
 
 fn simple_delta(start: &u32, target: &u32) -> u32 {
@@ -58,7 +58,7 @@ fn simple_delta(start: &u32, target: &u32) -> u32 {
 fn linear_delta(start: &u32, target: &u32) -> u32 {
     let delta = simple_delta(start, target);
     let upped: u64 = u64::from(delta) * u64::from(delta + 1);
-    return (upped / 2).try_into().unwrap();
+    (upped / 2).try_into().unwrap()
 }
 
 fn min_crab_fuel(input: &str, consumption_function: fn(&u32, &u32) -> u32) -> u64 {
@@ -75,7 +75,7 @@ fn min_crab_fuel(input: &str, consumption_function: fn(&u32, &u32) -> u32) -> u6
         sum
     });
 
-    return fuel_cost;
+    fuel_cost
 }
 
 pub fn part1(input: &str) {

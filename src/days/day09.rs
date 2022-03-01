@@ -95,15 +95,14 @@ impl RiskGrid {
             }
         }
 
-        return minimum_risks;
+        minimum_risks
     }
 
     // This will be a reverse graph search based on some starting locations
-    pub fn find_basin_sizes(&self, minima: &Vec<(usize, usize)>) -> Vec<u64> {
+    pub fn find_basin_sizes(&self, minima: &[(usize, usize)]) -> Vec<u64> {
         let mut basins: Vec<u64> = Vec::new();
         for initial_location in minima {
-            let mut visit_stack: Vec<(usize, usize)> = Vec::new();
-            visit_stack.push(*initial_location);
+            let mut visit_stack: Vec<(usize, usize)> = vec![*initial_location];
 
             let mut already_visited: HashSet<(usize, usize)> = HashSet::new();
 
@@ -147,7 +146,7 @@ impl RiskGrid {
             basins.push(basin_size);
         }
 
-        return basins;
+        basins
     }
 }
 
@@ -182,7 +181,7 @@ pub fn part2(input: &str) {
         risk_grid.find_local_minima().iter().cloned().unzip();
     let basins = risk_grid.find_basin_sizes(&minima_locations);
     let top_basins = basins.iter().sorted().rev().take(3);
-    let basin_area = top_basins.fold(1u64, |total, area| total * area);
+    let basin_area: u64 = top_basins.product();
     println!("Product of top three largest basins: {}", basin_area);
 }
 
@@ -221,7 +220,7 @@ mod tests {
             risk_grid.find_local_minima().iter().cloned().unzip();
         let basins = risk_grid.find_basin_sizes(&minima_locations);
         let top_basins = basins.iter().sorted().rev().take(3);
-        let basin_area = top_basins.fold(1u64, |total, area| total * area);
+        let basin_area: u64 = top_basins.product();
 
         assert_eq!(basin_area, 1134u64);
     }
