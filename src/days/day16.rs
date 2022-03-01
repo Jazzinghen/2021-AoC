@@ -16,10 +16,17 @@ impl Packet {
         }
     }
 
-    pub fn get_version(&self) -> u8 {
+    pub fn get_total_version(&self) -> u64 {
         match self {
-            Packet::Literal(lit) => lit.version,
-            Packet::Operator(op) => op.version,
+            Packet::Literal(lit) => lit.version.into(),
+            Packet::Operator(op) => op.total_version,
+        }
+    }
+
+    pub fn get_value(&self) -> u64 {
+        match self {
+            Packet::Literal(lit) => lit.value,
+            Packet::Operator(op) => op.value,
         }
     }
 }
@@ -34,7 +41,8 @@ struct LiteralPayload {
 #[derive(Eq, PartialEq, Debug)]
 struct OperatorPayload {
     version: u8,
-    sub_packets: Vec<Packet>,
+    value: u64,
+    total_version: u64,
     size: usize,
 }
 
@@ -72,32 +80,22 @@ fn hex_payload_to_binary(input: &str) -> String {
 }
 
 fn parse_packet(input: &str) -> Packet {
-    let mut version = 0u8;
-    for input_char in input.chars().take(3) {
-        version <<= 1u8;
-        if input_char == '1' {
-            version += 1u8;
-        }
-    }
-    let mut type_id = 0u8;
-    for input_char in input.chars().skip(3).take(3) {
-        type_id <<= 1u8;
-        if input_char == '1' {
-            type_id += 1u8;
-        }
-    }
+    let type_string: String = input.chars().skip(3).take(3).collect();
+    let type_id = u8::from_str_radix(&type_string, 2).unwrap();
 
     if type_id == 4u8 {
-        Packet::Literal(parse_literal(&input[6..], version))
+        Packet::Literal(parse_literal(input))
     } else {
-        Packet::Operator(parse_operator(&input[6..], version))
+        Packet::Operator(parse_operator(input))
     }
 }
 
-fn parse_literal(input: &str, version: u8) -> LiteralPayload {
+fn parse_literal(input: &str) -> LiteralPayload {
+    let version_string: String = input.chars().take(3).collect();
+    let version = u8::from_str_radix(&version_string, 2).unwrap();
     let mut final_value = 0u64;
     let mut last_chunk = 0usize;
-    for (chunk_idx, chunk) in input
+    for (chunk_idx, chunk) in input[6..]
         .chars()
         .chunks(5)
         .into_iter()
@@ -121,10 +119,15 @@ fn parse_literal(input: &str, version: u8) -> LiteralPayload {
     }
 }
 
-fn parse_operator(input: &str, version: u8) -> OperatorPayload {
-    let size_in_chars = input.starts_with('0');
+fn parse_operator(input: &str) -> OperatorPayload {
+    let version_string: String = input.chars().take(3).collect();
+    let version = u8::from_str_radix(&version_string, 2).unwrap();
+
+    let actual_input = &input[6..];
+    let size_in_chars = actual_input.starts_with('0');
     let size_displacement = if size_in_chars { 15usize } else { 11usize };
-    let mut remaining_data = usize::from_str_radix(&input[1..size_displacement + 1], 2).unwrap();
+    let mut remaining_data =
+        usize::from_str_radix(&actual_input[1..size_displacement + 1], 2).unwrap();
 
     let mut sub_packets: Vec<Packet> = Vec::new();
 
@@ -132,7 +135,7 @@ fn parse_operator(input: &str, version: u8) -> OperatorPayload {
         let sub_size: usize = sub_packets.iter().map(Packet::get_size).sum();
         let sub_start = sub_size + size_displacement;
 
-        let sub_package = parse_packet(&input[sub_start + 1..]);
+        let sub_package = parse_packet(&actual_input[sub_start + 1..]);
 
         remaining_data -= if size_in_chars {
             sub_package.get_size()
@@ -143,46 +146,71 @@ fn parse_operator(input: &str, version: u8) -> OperatorPayload {
         sub_packets.push(sub_package);
     }
 
+    let total_version: u64 = sub_packets
+        .iter()
+        .map(Packet::get_total_version)
+        .sum::<u64>()
+        + u64::from(version);
+
     let size: usize =
         sub_packets.iter().map(Packet::get_size).sum::<usize>() + size_displacement + 7usize;
 
+    let op_string: String = input.chars().skip(3).take(3).collect();
+    let op_id = u8::from_str_radix(&op_string, 2).unwrap();
+    let value: u64 = match op_id {
+        0u8 => sub_packets.iter().map(Packet::get_value).sum(),
+        1u8 => sub_packets.iter().map(Packet::get_value).product(),
+        2u8 => sub_packets.iter().map(Packet::get_value).min().unwrap(),
+        3u8 => sub_packets.iter().map(Packet::get_value).max().unwrap(),
+        5u8 => {
+            if sub_packets[0].get_value() > sub_packets[1].get_value() {
+                1u64
+            } else {
+                0u64
+            }
+        }
+        6u8 => {
+            if sub_packets[0].get_value() < sub_packets[1].get_value() {
+                1u64
+            } else {
+                0u64
+            }
+        }
+        7u8 => {
+            if sub_packets[0].get_value() == sub_packets[1].get_value() {
+                1u64
+            } else {
+                0u64
+            }
+        }
+        _ => {
+            panic!("Invalid operation id {}", op_id)
+        }
+    };
+
     OperatorPayload {
         version,
-        sub_packets,
+        value,
+        total_version,
         size,
     }
-}
-
-fn sum_all_versions(root: &Packet) -> u64 {
-    let mut exploration_stack: Vec<&Packet> = vec![root];
-
-    let mut version_sum = 0u64;
-
-    while let Some(next_operator) = exploration_stack.pop() {
-        version_sum += u64::from(next_operator.get_version());
-        if let Packet::Operator(op) = next_operator {
-            exploration_stack.extend(op.sub_packets.iter());
-        };
-    }
-
-    version_sum
 }
 
 pub fn part1(input: &str) {
     let input_binary = hex_payload_to_binary(input);
     let parsed_package = parse_packet(&input_binary);
-    let version_sum = sum_all_versions(&parsed_package);
 
-    println!("Sum of all the version numbers: {}", version_sum);
+    println!(
+        "Sum of all the version numbers: {}",
+        parsed_package.get_total_version()
+    );
 }
 
-pub fn _part2(_input: &str) {
-    // let risk_grid = RiskGrid::new(input);
-    // let start: Point = (0, 0);
-    // let end: Point = (risk_grid.rows - 1, risk_grid.columns - 1);
-    // let start_grid_coord: GridCoord = (0u8, 0u8);
-    // let end_grid_coord: GridCoord = (4u8, 4u8);
-    // println!("Lowest risk path sum: {}", risk_grid.find_lowest_risk_path(&(start, start_grid_coord), &(end, end_grid_coord)));
+pub fn part2(input: &str) {
+    let input_binary = hex_payload_to_binary(input);
+    let parsed_package = parse_packet(&input_binary);
+
+    println!("Computed value: {}", parsed_package.get_value());
 }
 
 #[cfg(test)]
@@ -219,22 +247,10 @@ mod tests {
         // 001 110 0 000000000011011 110 100 01010 010 100 10001 00100 0000000
         // VVV TTT I LLLLLLLLLLLLLLL AAA AAA AAAAA BBB BBB BBBBB BBBBB XXXXXXX
 
-        let sub_packets = vec![
-            Packet::Literal(LiteralPayload {
-                version: 6u8,
-                value: 10u64,
-                size: 11usize,
-            }),
-            Packet::Literal(LiteralPayload {
-                version: 2u8,
-                value: 20u64,
-                size: 16usize,
-            }),
-        ];
-
         let comparison_operator = Packet::Operator(OperatorPayload {
             version: 1u8,
-            sub_packets,
+            total_version: 9u64,
+            value: 1u64,
             size: 49usize,
         });
 
@@ -247,27 +263,10 @@ mod tests {
         // 111 011 1 00000000011 010 100 00001 100 100 00010 001 100 00011 00000
         // VVV TTT I LLLLLLLLLLL AAA AAA AAAAA BBB BBB BBBBB CCC CCC CCCCC XXXXX
 
-        let sub_packets = vec![
-            Packet::Literal(LiteralPayload {
-                version: 2u8,
-                value: 1u64,
-                size: 11usize,
-            }),
-            Packet::Literal(LiteralPayload {
-                version: 4u8,
-                value: 2u64,
-                size: 11usize,
-            }),
-            Packet::Literal(LiteralPayload {
-                version: 1u8,
-                value: 3u64,
-                size: 11usize,
-            }),
-        ];
-
         let comparison_operator = Packet::Operator(OperatorPayload {
             version: 7u8,
-            sub_packets,
+            total_version: 14u64,
+            value: 3u64,
             size: 51usize,
         });
 
@@ -279,21 +278,64 @@ mod tests {
         let input_binary = hex_payload_to_binary("8A004A801A8002F478");
         let operator = parse_packet(&input_binary);
 
-        assert_eq!(sum_all_versions(&operator), 16u64);
+        assert_eq!(operator.get_total_version(), 16u64);
 
         let input_binary = hex_payload_to_binary("620080001611562C8802118E34");
         let operator = parse_packet(&input_binary);
 
-        assert_eq!(sum_all_versions(&operator), 12u64);
+        assert_eq!(operator.get_total_version(), 12u64);
 
         let input_binary = hex_payload_to_binary("C0015000016115A2E0802F182340");
         let operator = parse_packet(&input_binary);
 
-        assert_eq!(sum_all_versions(&operator), 23u64);
+        assert_eq!(operator.get_total_version(), 23u64);
 
         let input_binary = hex_payload_to_binary("A0016C880162017C3686B18A3D4780");
         let operator = parse_packet(&input_binary);
 
-        assert_eq!(sum_all_versions(&operator), 31u64);
+        assert_eq!(operator.get_total_version(), 31u64);
+    }
+
+    #[test]
+    fn compute_operators_results() {
+        let input_binary = hex_payload_to_binary("C200B40A82");
+        let operator = parse_packet(&input_binary);
+
+        assert_eq!(operator.get_value(), 3u64);
+
+        let input_binary = hex_payload_to_binary("04005AC33890");
+        let operator = parse_packet(&input_binary);
+
+        assert_eq!(operator.get_value(), 54u64);
+
+        let input_binary = hex_payload_to_binary("880086C3E88112");
+        let operator = parse_packet(&input_binary);
+
+        assert_eq!(operator.get_value(), 7u64);
+
+        let input_binary = hex_payload_to_binary("CE00C43D881120");
+        let operator = parse_packet(&input_binary);
+
+        assert_eq!(operator.get_value(), 9u64);
+
+        let input_binary = hex_payload_to_binary("D8005AC2A8F0");
+        let operator = parse_packet(&input_binary);
+
+        assert_eq!(operator.get_value(), 1u64);
+
+        let input_binary = hex_payload_to_binary("F600BC2D8F");
+        let operator = parse_packet(&input_binary);
+
+        assert_eq!(operator.get_value(), 0u64);
+
+        let input_binary = hex_payload_to_binary("9C005AC2F8F0");
+        let operator = parse_packet(&input_binary);
+
+        assert_eq!(operator.get_value(), 0u64);
+
+        let input_binary = hex_payload_to_binary("9C0141080250320F1802104A08");
+        let operator = parse_packet(&input_binary);
+
+        assert_eq!(operator.get_value(), 1u64);
     }
 }
