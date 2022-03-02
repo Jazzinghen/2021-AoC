@@ -21,6 +21,11 @@ pub fn _i64(input: &str) -> IResult<&str, i64> {
     })(input)
 }
 
+pub fn i32(input: &str) -> IResult<&str, i32> {
+    let (rem_string, value) = recognize(pair(opt(tag("-")), uint))(input)?;
+    Ok((rem_string, value.parse::<i32>().unwrap()))
+}
+
 pub fn usize(input: &str) -> IResult<&str, usize> {
     let parser = recognize(uint);
     map(parser, |s| {
