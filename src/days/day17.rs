@@ -9,6 +9,9 @@ use nom::IResult;
 
 use crate::aoc_lib::jazz_parser;
 
+// This problem was simple in my mind, but then my tendency of screwing up loop-based algorithms with
+// "by one" errors is legendary
+
 // Point type
 type Point = (i32, i32);
 
@@ -28,6 +31,11 @@ impl Trench {
         }
     }
 
+    // This function uses the formula to compute the sum of the first n natural numbers to find the first
+    // x velocity that will get to 0 once in range of the trench. This works because x velocities reach 0
+    // and cannot go lower, so the final distance = sum(ini_x, ini_x - 1, .., 1, 0)
+    // Using this value we can go crazy with the y velocities, as we won't overshoot horizontally the
+    // trench no matter how high we go
     fn best_x(&self) -> i32 {
         let mut curr_x_speed = 0i32;
         while curr_x_speed * (curr_x_speed + 1i32) / 2i32 < self.top_left.0 {
@@ -37,13 +45,22 @@ impl Trench {
         curr_x_speed
     }
 
+    // After running a ton of computations I stopped and thought about how the ship moves. To end in the
+    // trench we just need to be at `min_y + 1` y speed when we are at `y = 0` (No matter the time step
+    // thanks to the zero x computation), as then the next step below 0 will be `min_y`
+    // Since the speed follows a parabolic trajectory we just need to set the starting velocity to the
+    // negative of the target speed at `y = 0`
     pub fn coolest_speed(&self) -> Point {
         (self.best_x(), -(self.bottom_right.1 + 1i32))
     }
 
+    // This function computes ALL the initial vertical velocities and how many steps will take the ship to reach the
+    // trench height.
+    // The function first computes all the speeds that will get to the trench directly and in how many steps and use
+    // that value to compute the time required for the opposite speed (i.e. how much to follow the parabolic trajectory)
     fn get_potential_y_velocities(&self) -> Vec<(i32, i32)> {
         let max_y = -(self.bottom_right.1 + 1i32);
-        let mut available_velocities: Vec<(i32, i32)> = Vec::new();
+        let mut available_velocities: Vec<(i32, i32)> = vec![(self.bottom_right.1, 1i32)];
         for start_y in 0i32..=max_y {
             let mut y_check = 0i32;
             let mut step = 0i32;
@@ -53,24 +70,18 @@ impl Trench {
             }
 
             while y_check >= self.bottom_right.1 {
-                available_velocities.push((-start_y, step - 1i32));
+                available_velocities.push((-start_y, step));
+                available_velocities.push((start_y, start_y * 2 + step));
                 y_check -= start_y + step;
                 step += 1i32;
             }
         }
 
-        let mut extra_velocities: Vec<(i32, i32)> = Vec::new();
-        for (vel, steps) in available_velocities.iter() {
-            if *vel < 0i32 {
-                extra_velocities.push((-*vel, -*vel * 2 + steps));
-            }
-        }
-
-        available_velocities.extend(extra_velocities);
-        available_velocities.push((self.bottom_right.1, 0i32));
         available_velocities
     }
 
+    // This is the same as "best_x" but computes all the possible initial horizontal velocities
+    // that will make the ship hit the trench with 0 horizontal speed
     fn get_all_zero_x(&self) -> Vec<i32> {
         let mut curr_x_speed = self.best_x();
         let mut zero_x_velocities: Vec<i32> = Vec::new();
@@ -82,6 +93,8 @@ impl Trench {
         zero_x_velocities
     }
 
+    // This function computes all the initial horizontal velocities that will make the ship
+    // hit the trench in `steps` time
     fn get_x_velocities(&self, steps: i32) -> Vec<i32> {
         let mut x_vels: Vec<i32> = Vec::new();
 
@@ -98,6 +111,8 @@ impl Trench {
         x_vels
     }
 
+    // Since we can shoot the ship directly at the trench we can use all the coordinates of the target
+    // trench as initial velocities
     fn one_step_velocities(&self) -> Vec<Point> {
         let platform_locations = (self.top_left.0..=self.bottom_right.0)
             .cartesian_product(self.bottom_right.1..=self.top_left.1);
@@ -105,6 +120,15 @@ impl Trench {
         platform_locations.collect_vec()
     }
 
+    // This is pretty straightforward:
+    //   - Get all the kown velocities
+    //   - Get all the working y velocities and how much they take to reach the trench
+    //      - For each of these velocities find the x velocities that reach the trench in that amount of steps
+    //      - Add the velocity vector to the set
+    //   - Get all the initial horizontal velocities that make the ship reach the trench with `vel_x = 0`
+    //      - Combine each of these velocities with all the y velocities that take `initial_x` steps or more
+    //        to reach the trench
+    //      - Add these vectors to the set
     pub fn compute_initial_velocities(&self) -> HashSet<Point> {
         let mut velocities: HashSet<Point> =
             HashSet::from_iter(self.one_step_velocities().into_iter());
@@ -112,7 +136,7 @@ impl Trench {
         let all_initial_y_vels = self.get_potential_y_velocities();
 
         for (vel, steps) in all_initial_y_vels.iter() {
-            let x_vels = self.get_x_velocities(*steps + 1);
+            let x_vels = self.get_x_velocities(*steps);
             let vel_combos = x_vels.into_iter().map(|x| (x, *vel));
             velocities.extend(vel_combos);
         }
