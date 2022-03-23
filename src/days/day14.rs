@@ -95,12 +95,11 @@ impl PolymerData {
             frequencies.insert(last_element, 1u64);
         }
 
-        let delta: u64;
-        if let MinMaxResult::MinMax(min, max) = frequencies.values().minmax() {
-            delta = max - min;
+        let delta: u64 = if let MinMaxResult::MinMax(min, max) = frequencies.values().minmax() {
+            max - min
         } else {
             panic!("For some reason we didn't find a min and max in the values!");
-        }
+        };
 
         (delta, frequencies)
     }
