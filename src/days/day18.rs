@@ -150,8 +150,6 @@ mod tests {
 
         let numbers = parse_numbers(input_string);
 
-        println!("{:?}", numbers);
-
         // It's pretty dumb, but it's the ony way I know to do this test
         let ref_numbers: Vec<SailfishNumber> = vec![
             SailfishNumber {
