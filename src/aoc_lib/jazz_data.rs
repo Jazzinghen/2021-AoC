@@ -1,5 +1,4 @@
 use core::fmt::{Debug, Formatter, Result};
-use itertools::Itertools;
 
 #[derive(Debug, Default, PartialEq)]
 pub struct ArenaTree<T>
@@ -65,6 +64,7 @@ where
 {
     pub idx: usize,
     pub value: Option<T>,
+    pub depth: usize,
     pub parent: Option<usize>,
     pub left: Option<usize>,
     pub right: Option<usize>,
@@ -74,10 +74,11 @@ impl<T> BinaryNode<T>
 where
     T: PartialEq,
 {
-    pub fn new(idx: usize, value: Option<T>) -> Self {
+    pub fn new(idx: usize, value: Option<T>, depth: usize) -> Self {
         Self {
             idx,
             value,
+            depth,
             parent: None,
             left: None,
             right: None,
