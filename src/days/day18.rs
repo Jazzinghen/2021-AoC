@@ -263,11 +263,29 @@ pub fn part2(input: &str) {
 
 #[cfg(test)]
 mod tests {
-    use std::vec;
+    use std::{fmt, vec};
 
     use itertools::Itertools;
 
     use super::*;
+
+    impl fmt::Display for SailfishNumber {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "{}", print_number(&self.data, 0))
+        }
+    }
+
+    fn print_number(subtree: &BinaryTree<u8>, node_idx: usize) -> String {
+        let current_node = subtree.arena.get(node_idx).unwrap();
+        match current_node.value {
+            Some(val) => val.to_string(),
+            None => {
+                let left_str = print_number(subtree, current_node.left.unwrap());
+                let right_str = print_number(subtree, current_node.right.unwrap());
+                format!("[{},{}]", left_str, right_str)
+            }
+        }
+    }
 
     impl Debug for SailfishNumber {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result {
@@ -290,18 +308,6 @@ mod tests {
             }
             writeln!(f, "],")?;
             writeln!(f, "}}")
-        }
-    }
-
-    fn print_number(subtree: &BinaryTree<u8>, node_idx: usize) -> String {
-        let current_node = subtree.arena.get(node_idx).unwrap();
-        match current_node.value {
-            Some(val) => val.to_string(),
-            None => {
-                let left_str = print_number(subtree, current_node.left.unwrap());
-                let right_str = print_number(subtree, current_node.right.unwrap());
-                format!("[{},{}]", left_str, right_str)
-            }
         }
     }
 
@@ -1104,5 +1110,65 @@ mod tests {
         ];
 
         assert_eq!(reduced_numbers, ref_reductions);
+    }
+
+    #[test]
+    fn full_reduction() {
+        let input_string = "[[[[[4,3],4],4],[7,[[8,4],9]]],[1,1]]";
+
+        let mut numbers = parse_numbers(input_string);
+        let reduced_numbers: Vec<String> = numbers
+            .iter_mut()
+            .map(|num| {
+                num.reduce();
+                print_number(&num.data, 0)
+            })
+            .collect_vec();
+
+        let ref_reductions = vec!["[[[[0,7],4],[[7,8],[6,0]]],[8,1]]"];
+
+        assert_eq!(reduced_numbers, ref_reductions);
+    }
+
+    #[test]
+    fn simple_sums() {
+        let input_strings = vec![
+            "[1,1]
+             [2,2]
+             [3,3]
+             [4,4]",
+            "[1,1]
+             [2,2]
+             [3,3]
+             [4,4]
+             [5,5]",
+            "[1,1]
+             [2,2]
+             [3,3]
+             [4,4]
+             [5,5]
+             [6,6]",
+        ];
+
+        let mut reduced_numbers: Vec<String> = Vec::new();
+
+        for group in input_strings.into_iter().map(parse_numbers) {
+            let mut total = group[0].sum(&group[1]);
+            total.reduce();
+            for num in group.iter().skip(2) {
+                total = total.sum(num);
+                total.reduce();
+            }
+
+            reduced_numbers.push(total.to_string());
+        }
+
+        let reference_results = vec![
+            "[[[[1,1],[2,2]],[3,3]],[4,4]]",
+            "[[[[3,0],[5,3]],[4,4]],[5,5]]",
+            "[[[[5,0],[7,4]],[5,5]],[6,6]]",
+        ];
+
+        assert_eq!(reduced_numbers, reference_results);
     }
 }
