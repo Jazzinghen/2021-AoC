@@ -1,4 +1,5 @@
-use core::fmt::{Debug, Formatter, Result};
+use core::fmt::Debug;
+use hashbrown::HashSet;
 
 #[derive(Debug, Default, PartialEq)]
 pub struct ArenaTree<T>
@@ -8,27 +9,61 @@ where
     pub arena: Vec<Node<T>>,
 }
 
-#[derive(Default, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 pub struct BinaryTree<T>
 where
     T: PartialEq,
 {
     pub arena: Vec<BinaryNode<T>>,
+    available_nodes: HashSet<usize>,
 }
 
-impl<T> Debug for BinaryTree<T>
+impl<T> BinaryTree<T>
 where
-    T: PartialEq + Debug,
+    T: PartialEq,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        writeln!(f, "BinaryTree {{")?;
-        writeln!(f, "arena: vec![")?;
-        for entry in self.arena.iter() {
-            writeln!(f, "{:?}", entry)?;
-            writeln!(f, ",")?;
+    pub fn new(arena: Vec<BinaryNode<T>>) -> Self {
+        Self {
+            arena,
+            available_nodes: HashSet::new(),
         }
-        writeln!(f, "],")?;
-        writeln!(f, "}}")
+    }
+
+    pub fn remove_node(&mut self, idx: usize) {
+        let mut remove_front: Vec<usize> = vec![idx];
+        // Remove reference to current node from its parent
+        if let Some(parent) = self.arena[idx].parent {
+            let parent_node = self.arena.get_mut(parent).unwrap();
+            if parent_node.left.map_or(false, |left| left == idx) {
+                parent_node.left = None;
+            } else if parent_node.right.map_or(false, |right| right == idx) {
+                parent_node.right = None;
+            }
+        }
+        // Then traverse all the subtree from the node to remove to check for children
+        while let Some(current_idx) = remove_front.pop() {
+            // Add the node idx as available
+            self.available_nodes.insert(current_idx);
+            let current_node = &self.arena[current_idx];
+            if let Some(left) = current_node.left {
+                remove_front.push(left);
+            }
+            if let Some(right) = current_node.right {
+                remove_front.push(right);
+            }
+        }
+    }
+
+    pub fn add_new_node(&mut self, new_node: BinaryNode<T>) -> usize {
+        if let Some(&idx) = self.available_nodes.iter().next() {
+            self.available_nodes.remove(&idx);
+            self.arena[idx] = new_node;
+            idx
+        } else {
+            let new_idx = self.arena.len();
+            self.arena.push(new_node);
+            new_idx
+        }
     }
 }
 

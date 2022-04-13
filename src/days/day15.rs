@@ -1,5 +1,6 @@
+use hashbrown::HashSet;
 use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashSet};
+use std::collections::BinaryHeap;
 use std::convert::TryInto;
 use std::fmt;
 

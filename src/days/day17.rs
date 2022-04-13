@@ -1,5 +1,5 @@
+use hashbrown::HashSet;
 use std::cmp::{max, min};
-use std::collections::HashSet;
 use std::iter::FromIterator;
 
 use itertools::Itertools;

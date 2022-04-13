@@ -6,6 +6,13 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[profile.release]
+strip = true
+
+[profile.test]
+strip = true
+
 [dependencies]
 itertools = ">=0.10"
 nom = ">=7"
+hashbrown = ">=0.12"

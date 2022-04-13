@@ -1,4 +1,5 @@
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use hashbrown::{HashMap, HashSet};
+use std::collections::{BTreeMap, VecDeque};
 use std::convert::TryFrom;
 
 use nom::branch::alt;

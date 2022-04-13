@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use hashbrown::HashSet;
 use std::convert::TryFrom;
 use std::iter::FromIterator;
 
