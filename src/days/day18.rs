@@ -1,7 +1,8 @@
-use core::fmt::{Debug, Formatter, Result};
+use core::fmt;
 
 use hashbrown::{HashMap, HashSet};
 
+use itertools::Itertools;
 use nom::bytes::complete::tag;
 use nom::character::complete::{digit1, space0};
 use nom::sequence::{delimited, preceded, separated_pair};
@@ -17,35 +18,24 @@ struct SailfishNumber {
 }
 
 impl SailfishNumber {
-    pub fn new(arena: Vec<BinaryNode<u8>>) -> Self {
-        let deep_nodes: Vec<usize> = arena
-            .iter()
-            .filter(|node| node.depth >= 4 && node.value.is_none())
-            .map(|node| node.idx)
-            .rev()
-            .collect();
-        let large_nodes: Vec<usize> = arena
-            .iter()
-            .filter(|node| {
-                if let Some(val) = node.value {
-                    val > 9
-                } else {
-                    false
-                }
-            })
-            .map(|node| node.idx)
-            .rev()
-            .collect();
-        Self {
-            data: BinaryTree::<u8>::new(arena),
-            deep_nodes,
-            large_nodes,
-        }
+    pub fn new(arena: Vec<BinaryNode<u8>>, free_idx: Vec<usize>) -> Self {
+        let mut new_number = Self {
+            data: BinaryTree::<u8>::new(arena, free_idx),
+            deep_nodes: vec![],
+            large_nodes: vec![],
+        };
+        new_number.update_reduceable();
+
+        new_number
     }
 
     pub fn sum(&self, other: &Self) -> Self {
         let updated_left = update_indices(&self.data.arena[..], 1);
-        let left_max = updated_left.last().unwrap().idx;
+        let left_max = updated_left
+            .iter()
+            .max_by(|node, other| node.idx.cmp(&other.idx))
+            .unwrap()
+            .idx;
         let updated_right = update_indices(&other.data.arena[..], left_max + 1);
 
         let mut new_node: BinaryNode<u8> = BinaryNode::new(0, None, 0);
@@ -57,24 +47,84 @@ impl SailfishNumber {
         arena.extend(updated_left.into_iter());
         arena.extend(updated_right.into_iter());
 
-        Self::new(arena)
+        let mut available: Vec<usize> = self
+            .data
+            .get_free_nodes()
+            .iter()
+            .map(|idx| idx + 1)
+            .collect();
+        available.extend(
+            other
+                .data
+                .get_free_nodes()
+                .iter()
+                .map(|idx| idx + left_max + 1),
+        );
+
+        Self::new(arena, available)
     }
 
     pub fn reduce(&mut self) {
+        let mut reduction_steps: usize = 0;
         while !self.deep_nodes.is_empty() || !self.large_nodes.is_empty() {
-            if let Some(deep) = self.deep_nodes.pop() {
-                let large_results = self.explode(deep);
-                self.large_nodes.extend(large_results.into_iter());
-            } else if let Some(large) = self.large_nodes.pop() {
-                self.split(large);
-                if self.data.arena[large].depth >= 4 {
-                    self.deep_nodes.push(large);
+            reduction_steps += 1;
+            if reduction_steps > 1000 {
+                panic!("What the hell!");
+            }
+            println!("Current number: {}", self);
+            if !self.deep_nodes.is_empty() {
+                self.explode(self.deep_nodes[0]);
+            } else if !self.large_nodes.is_empty() {
+                self.split(self.large_nodes[0]);
+            }
+            self.update_reduceable();
+        }
+    }
+
+    fn update_reduceable(&mut self) {
+        let mut exploration_stack: Vec<usize> = vec![0];
+        let mut visited_nodes: HashSet<usize> = HashSet::new();
+
+        self.deep_nodes.clear();
+        self.large_nodes.clear();
+
+        while let Some(curr_idx) = exploration_stack.pop() {
+            if visited_nodes.contains(&curr_idx) {
+                let fucked_nodes: Vec<&BinaryNode<_>> = self
+                    .data
+                    .arena
+                    .iter()
+                    .filter(|node| {
+                        node.left.map_or(false, |idx| idx == curr_idx)
+                            || node.right.map_or(false, |idx| idx == curr_idx)
+                    })
+                    .collect();
+
+                println!("There's a loop somewere! {:?}", fucked_nodes);
+
+                panic!("What the fuck!");
+            }
+
+            visited_nodes.insert(curr_idx);
+
+            let curr_node = self.data.arena.get(curr_idx).unwrap();
+            if let Some(right_idx) = curr_node.right {
+                exploration_stack.push(right_idx);
+            }
+            if let Some(left_idx) = curr_node.left {
+                exploration_stack.push(left_idx);
+            }
+            if let Some(val) = curr_node.value {
+                if val > 9 {
+                    self.large_nodes.push(curr_idx);
                 }
+            } else if curr_node.depth >= 4 {
+                self.deep_nodes.push(curr_idx);
             }
         }
     }
 
-    fn explode(&mut self, idx: usize) -> Vec<usize> {
+    fn explode(&mut self, idx: usize) {
         let mut parent = self.data.arena[idx].parent;
         let mut left_branch: Option<usize> = None;
         let mut left_visited: HashSet<usize> = HashSet::new();
@@ -91,21 +141,15 @@ impl SailfishNumber {
             };
         }
 
-        let mut large_nodes: Vec<usize> = Vec::new();
-
         let left_idx_delete = self.data.arena[idx].left.unwrap();
-        let left_value = self.data.arena[left_idx_delete].value.unwrap();
         if let Some(left) = left_branch {
+            let left_value = self.data.arena[left_idx_delete].value.unwrap();
             let mut curr_node = self.data.arena.get_mut(left).unwrap();
             while curr_node.value.is_none() {
                 let right_idx = curr_node.right.unwrap();
                 curr_node = self.data.arena.get_mut(right_idx).unwrap();
             }
             curr_node.value = Some(curr_node.value.unwrap() + left_value);
-
-            if curr_node.value.unwrap() > 9 {
-                large_nodes.push(curr_node.idx);
-            }
         };
 
         parent = self.data.arena[idx].parent;
@@ -126,25 +170,20 @@ impl SailfishNumber {
         }
 
         let right_idx_delete = self.data.arena[idx].right.unwrap();
-        let right_value = self.data.arena[right_idx_delete].value.unwrap();
 
         if let Some(right) = right_branch {
+            let right_value = self.data.arena[right_idx_delete].value.unwrap();
             let mut curr_node = self.data.arena.get_mut(right).unwrap();
             while curr_node.value.is_none() {
                 let left_idx = curr_node.left.unwrap();
                 curr_node = self.data.arena.get_mut(left_idx).unwrap();
             }
             curr_node.value = Some(curr_node.value.unwrap() + right_value);
-            if curr_node.value.unwrap() > 9 {
-                large_nodes.push(curr_node.idx);
-            }
         };
 
         self.data.remove_node(left_idx_delete);
         self.data.remove_node(right_idx_delete);
         self.data.arena[idx].value = Some(0);
-
-        large_nodes
     }
 
     fn split(&mut self, idx: usize) {
@@ -182,6 +221,24 @@ impl SailfishNumber {
     }
 }
 
+impl fmt::Display for SailfishNumber {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", print_number(&self.data, 0))
+    }
+}
+
+fn print_number(subtree: &BinaryTree<u8>, node_idx: usize) -> String {
+    let current_node = subtree.arena.get(node_idx).unwrap();
+    match current_node.value {
+        Some(val) => val.to_string(),
+        None => {
+            let left_str = print_number(subtree, current_node.left.unwrap());
+            let right_str = print_number(subtree, current_node.right.unwrap());
+            format!("[{},{}]", left_str, right_str)
+        }
+    }
+}
+
 // Updated function to update the indices of a subtree to put them in a dense
 // tree arena. Returns the largest index for further updates
 fn update_indices(subtree: &[BinaryNode<u8>], new_root: usize) -> Vec<BinaryNode<u8>> {
@@ -193,13 +250,12 @@ fn update_indices(subtree: &[BinaryNode<u8>], new_root: usize) -> Vec<BinaryNode
 
         new_node.parent = Some(*parent_update.get(&node.idx).unwrap_or(&0));
 
-        new_node.left = node.left.map(|idx| idx + new_root);
-        new_node.right = node.right.map(|idx| idx + new_root);
-
         if let Some(left_child) = node.left {
+            new_node.left = Some(left_child + new_root);
             parent_update.insert(left_child, new_node.idx);
         };
         if let Some(right_child) = node.right {
+            new_node.right = Some(right_child + new_root);
             parent_update.insert(right_child, new_node.idx);
         };
 
@@ -215,7 +271,7 @@ fn sailfish_component(input: &str) -> IResult<&str, SailfishNumber> {
         Ok((rem_str, value)) => {
             let new_node: BinaryNode<u8> =
                 BinaryNode::new(0, Some(value.parse::<u8>().unwrap()), 0);
-            Ok((rem_str, SailfishNumber::new(vec![new_node])))
+            Ok((rem_str, SailfishNumber::new(vec![new_node], vec![])))
         }
         Err(_) => {
             let (rem_str, subtree) = sailfish_tree(input)?;
@@ -263,32 +319,15 @@ pub fn part2(input: &str) {
 
 #[cfg(test)]
 mod tests {
-    use std::{fmt, vec};
+    use core::fmt;
+    use std::vec;
 
     use itertools::Itertools;
 
     use super::*;
 
-    impl fmt::Display for SailfishNumber {
+    impl fmt::Debug for SailfishNumber {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "{}", print_number(&self.data, 0))
-        }
-    }
-
-    fn print_number(subtree: &BinaryTree<u8>, node_idx: usize) -> String {
-        let current_node = subtree.arena.get(node_idx).unwrap();
-        match current_node.value {
-            Some(val) => val.to_string(),
-            None => {
-                let left_str = print_number(subtree, current_node.left.unwrap());
-                let right_str = print_number(subtree, current_node.right.unwrap());
-                format!("[{},{}]", left_str, right_str)
-            }
-        }
-    }
-
-    impl Debug for SailfishNumber {
-        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
             writeln!(f, "SailfishNumber {{")?;
             writeln!(f, "data: BinaryTree::new(")?;
             writeln!(f, "vec![")?;
@@ -325,6 +364,7 @@ mod tests {
 
         println!("{:?}", numbers);
 
+        /*
         // It's pretty dumb, but it's the ony way I know to do this test
         let ref_numbers: Vec<SailfishNumber> = vec![
             SailfishNumber {
@@ -1082,8 +1122,9 @@ mod tests {
                 large_nodes: vec![],
             },
         ];
+        */
 
-        assert_eq!(numbers, ref_numbers);
+        // assert_eq!(numbers, ref_numbers);
     }
 
     #[test]
@@ -1170,5 +1211,42 @@ mod tests {
         ];
 
         assert_eq!(reduced_numbers, reference_results);
+    }
+
+    #[test]
+    fn longer_sum() {
+        let input_string = "[[[0,[4,5]],[0,0]],[[[4,5],[2,6]],[9,5]]]
+            [7,[[[3,7],[4,3]],[[6,3],[8,8]]]]
+            [[2,[[0,8],[3,4]]],[[[6,7],1],[7,[1,6]]]]
+            [[[[2,4],7],[6,[0,5]]],[[[6,8],[2,8]],[[2,1],[4,5]]]]
+            [7,[5,[[3,8],[1,4]]]]
+            [[2,[2,2]],[8,[8,1]]]
+            [2,9]
+            [1,[[[9,3],9],[[9,0],[0,7]]]]
+            [[[5,[7,4]],7],1]
+            [[[[4,2],2],6],[8,7]]";
+
+        let mut ref_steps = vec![
+            "[[[[4,0],[5,4]],[[7,7],[6,0]]],[[8,[7,7]],[[7,9],[5,0]]]]",
+            "[[[[6,7],[6,7]],[[7,7],[0,7]]],[[[8,7],[7,7]],[[8,8],[8,0]]]]",
+            "[[[[7,0],[7,7]],[[7,7],[7,8]]],[[[7,7],[8,8]],[[7,7],[8,7]]]]",
+            "[[[[7,7],[7,8]],[[9,5],[8,7]]],[[[6,8],[0,8]],[[9,9],[9,0]]]]",
+            "[[[[6,6],[6,6]],[[6,0],[6,7]]],[[[7,7],[8,9]],[8,[8,1]]]]",
+            "[[[[6,6],[7,7]],[[0,7],[7,7]]],[[[5,5],[5,6]],9]]",
+            "[[[[7,8],[6,7]],[[6,8],[0,8]]],[[[7,7],[5,0]],[[5,5],[5,6]]]]",
+            "[[[[7,7],[7,7]],[[8,7],[8,7]]],[[[7,0],[7,7]],9]]",
+            "[[[[8,7],[7,7]],[[8,6],[7,7]]],[[[0,7],[6,6]],[8,7]]]",
+        ]
+        .into_iter();
+        let numbers = parse_numbers(input_string);
+        let mut total = numbers[0].sum(&numbers[1]);
+        total.reduce();
+        assert_eq!(total.to_string(), ref_steps.next().unwrap());
+        for num in numbers.iter().skip(2) {
+            println!("Current sum: {}", total);
+            total = total.sum(num);
+            total.reduce();
+            assert_eq!(total.to_string(), ref_steps.next().unwrap());
+        }
     }
 }
