@@ -1,10 +1,9 @@
-use indextree::{Arena, Node, NodeId};
+use indextree::{Arena, NodeId};
 use nom::bytes::complete::tag;
 use nom::character::complete::{space0, u8};
 use nom::sequence::{delimited, preceded, separated_pair};
 use nom::IResult;
 
-use crate::aoc_lib::jazz_data::{BinaryNode, BinaryTree};
 type SailfishArena = Arena<Option<u8>>;
 
 #[derive(Clone)]
@@ -176,18 +175,6 @@ fn split(arena: &mut SailfishArena, big_node: NodeId) {
     big_node.append(new_right_node, arena);
 }
 
-fn print_number(arena: &SailfishArena, node_idx: NodeId) -> String {
-    let current_node = arena.get(node_idx).unwrap();
-    match current_node.get() {
-        Some(val) => val.to_string(),
-        None => {
-            let left_str = print_number(arena, current_node.first_child().unwrap());
-            let right_str = print_number(arena, current_node.last_child().unwrap());
-            format!("[{},{}]", left_str, right_str)
-        }
-    }
-}
-
 fn compute_magnitude(arena: &SailfishArena, node_idx: NodeId) -> u64 {
     let current_node = arena.get(node_idx).unwrap();
     match current_node.get() {
@@ -268,10 +255,18 @@ fn convert_tree(from: TempNode, arena: &mut SailfishArena) -> NodeId {
 }
 
 pub fn part1(input: &str) {
-    // let (_, target_trench) = target(input).unwrap();
-    // let start_v = target_trench.coolest_speed();
-    // let max_height: i32 = start_v.1 * (start_v.1 + 1i32) / 2i32;
-    //  println!("Maximum height for provided trench: {}", max_height);
+    let mut arena: SailfishArena = Arena::new();
+    let numbers = parse_numbers(input, &mut arena);
+
+    let mut total_idx = sum(&mut arena, numbers[0], numbers[1]);
+    for next_root in numbers.into_iter().skip(2) {
+        total_idx = sum(&mut arena, total_idx, next_root);
+    }
+
+    println!(
+        "Final magnitude of the sum: {}",
+        compute_magnitude(&arena, total_idx)
+    );
 }
 
 pub fn part2(input: &str) {
@@ -293,6 +288,18 @@ mod tests {
             result.push_str(w);
         });
         result
+    }
+
+    fn print_number(arena: &SailfishArena, node_idx: NodeId) -> String {
+        let current_node = arena.get(node_idx).unwrap();
+        match current_node.get() {
+            Some(val) => val.to_string(),
+            None => {
+                let left_str = print_number(arena, current_node.first_child().unwrap());
+                let right_str = print_number(arena, current_node.last_child().unwrap());
+                format!("[{},{}]", left_str, right_str)
+            }
+        }
     }
 
     /*
