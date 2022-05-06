@@ -87,14 +87,11 @@ fn find_reducible(arena: &mut SailfishArena, root: NodeId) -> Option<SailfishOpe
 }
 
 fn reduce(arena: &mut SailfishArena, root: NodeId) {
-    println!("Start: {}", print_number(arena, root));
     while let Some(next_reduction) = find_reducible(arena, root) {
         match next_reduction {
             SailfishOperation::Explode(node) => explode(arena, node),
             SailfishOperation::Split(node) => split(arena, node),
         };
-
-        println!("New status: {}", print_number(arena, root));
     }
 }
 
@@ -187,6 +184,18 @@ fn print_number(arena: &SailfishArena, node_idx: NodeId) -> String {
             let left_str = print_number(arena, current_node.first_child().unwrap());
             let right_str = print_number(arena, current_node.last_child().unwrap());
             format!("[{},{}]", left_str, right_str)
+        }
+    }
+}
+
+fn compute_magnitude(arena: &SailfishArena, node_idx: NodeId) -> u64 {
+    let current_node = arena.get(node_idx).unwrap();
+    match current_node.get() {
+        Some(val) => u64::from(*val),
+        None => {
+            let left_val: u64 = compute_magnitude(arena, current_node.first_child().unwrap()) * 3;
+            let right_val: u64 = compute_magnitude(arena, current_node.last_child().unwrap()) * 2;
+            left_val + right_val
         }
     }
 }
@@ -462,12 +471,33 @@ mod tests {
             ref_steps.next().unwrap()
         );
         for next_root in numbers.into_iter().skip(2) {
-            println!("Current sum: {}", print_number(&test_arena, next_root));
             total_idx = sum(&mut test_arena, total_idx, next_root);
             assert_eq!(
                 print_number(&test_arena, total_idx),
                 ref_steps.next().unwrap()
             );
         }
+    }
+
+    #[test]
+    fn magnitude_computation() {
+        let input_string = "[[1,2],[[3,4],5]]
+            [[[[0,7],4],[[7,8],[6,0]]],[8,1]]
+            [[[[1,1],[2,2]],[3,3]],[4,4]]
+            [[[[3,0],[5,3]],[4,4]],[5,5]]
+            [[[[5,0],[7,4]],[5,5]],[6,6]]
+            [[[[8,7],[7,7]],[[8,6],[7,7]]],[[[0,7],[6,6]],[8,7]]]";
+
+        let mut test_arena: SailfishArena = Arena::new();
+        let numbers = parse_numbers(input_string, &mut test_arena);
+
+        let magnitudes: Vec<u64> = numbers
+            .into_iter()
+            .map(|r| compute_magnitude(&test_arena, r))
+            .collect();
+
+        let ref_magnitudes: Vec<u64> = vec![143, 1384, 445, 791, 1137, 3488];
+
+        assert_eq!(magnitudes, ref_magnitudes);
     }
 }
