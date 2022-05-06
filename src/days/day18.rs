@@ -269,7 +269,7 @@ pub fn part1(input: &str) {
     );
 }
 
-pub fn part2(input: &str) {
+pub fn _part2(_input: &str) {
     // let (_, target_trench) = target(input).unwrap();
     // let initial_velocities: HashSet<Point> = target_trench.compute_initial_velocities();
     // println!("Amount of initial velocities: {}", initial_velocities.len());
