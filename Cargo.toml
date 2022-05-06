@@ -16,3 +16,4 @@ strip = true
 itertools = ">=0.10"
 nom = ">=7"
 hashbrown = ">=0.12"
+indextree = ">=4.4.0"
