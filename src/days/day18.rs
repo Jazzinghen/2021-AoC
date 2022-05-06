@@ -500,4 +500,32 @@ mod tests {
 
         assert_eq!(magnitudes, ref_magnitudes);
     }
+
+    #[test]
+    fn string_to_magnitude_fullstack() {
+        let input_string = "[[[0,[5,8]],[[1,7],[9,6]]],[[4,[1,2]],[[1,4],2]]]
+        [[[5,[2,8]],4],[5,[[9,9],0]]]
+        [6,[[[6,2],[5,6]],[[7,6],[4,7]]]]
+        [[[6,[0,7]],[0,9]],[4,[9,[9,0]]]]
+        [[[7,[6,4]],[3,[1,3]]],[[[5,5],1],9]]
+        [[6,[[7,3],[3,2]]],[[[3,8],[5,7]],4]]
+        [[[[5,4],[7,7]],8],[[8,3],8]]
+        [[9,3],[[9,9],[6,[4,9]]]]
+        [[2,[[7,7],7]],[[5,8],[[9,3],[0,2]]]]
+        [[[[5,2],5],[8,[3,7]]],[[5,[7,5]],[4,4]]]";
+
+        let mut test_arena: SailfishArena = Arena::new();
+        let numbers = parse_numbers(input_string, &mut test_arena);
+
+        let mut total_idx = sum(&mut test_arena, numbers[0], numbers[1]);
+        for next_root in numbers.into_iter().skip(2) {
+            total_idx = sum(&mut test_arena, total_idx, next_root);
+        }
+
+        assert_eq!(
+            print_number(&test_arena, total_idx),
+            "[[[[6,6],[7,6]],[[7,7],[7,0]]],[[[7,7],[7,7]],[[7,8],[9,9]]]]"
+        );
+        assert_eq!(compute_magnitude(&test_arena, total_idx), 4140);
+    }
 }
