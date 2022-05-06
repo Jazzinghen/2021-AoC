@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 use nom::bytes::complete::tag;
 use nom::combinator::map;

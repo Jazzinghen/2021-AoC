@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 enum CheckResult {
     Wrong(char),
@@ -6,7 +6,10 @@ enum CheckResult {
 }
 
 fn syntax_line_check(line: &str) -> CheckResult {
-    let parentheses_combo = HashMap::from([('(', ')'), ('<', '>'), ('{', '}'), ('[', ']')]);
+    let parentheses_combo: HashMap<char, char> = [('(', ')'), ('<', '>'), ('{', '}'), ('[', ']')]
+        .iter()
+        .cloned()
+        .collect();
     let mut parentheses_stack: Vec<char> = Vec::new();
     for par in line.chars() {
         if parentheses_combo.contains_key(&par) {
@@ -27,7 +30,11 @@ fn syntax_line_check(line: &str) -> CheckResult {
 
 // This function takes the remaining, incomplete, part of a syntax line and computes the autocompletion score
 fn compute_autocomplete_cost(input: &[char]) -> u64 {
-    let autocomplete_costs = HashMap::from([('(', 1u64), ('[', 2u64), ('{', 3u64), ('<', 4u64)]);
+    let autocomplete_costs: HashMap<char, u64> =
+        [('(', 1u64), ('[', 2u64), ('{', 3u64), ('<', 4u64)]
+            .iter()
+            .cloned()
+            .collect();
     let autocomplete_stack = input.iter().rev();
     let mut autocomplete_cost = 0u64;
 
@@ -40,7 +47,11 @@ fn compute_autocomplete_cost(input: &[char]) -> u64 {
 }
 
 fn compute_syntax_scores(input: &str) -> (u64, u64) {
-    let error_score = HashMap::from([(')', 3u64), ('>', 25137u64), ('}', 1197u64), (']', 57u64)]);
+    let error_score: HashMap<char, u64> =
+        [(')', 3u64), ('>', 25137u64), ('}', 1197u64), (']', 57u64)]
+            .iter()
+            .cloned()
+            .collect();
     let mut syntax_score = 0u64;
     let mut autocomplete_costs = Vec::new();
     for syntax_line in input.split_whitespace() {

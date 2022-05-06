@@ -1,4 +1,5 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use hashbrown::{HashMap, HashSet};
+use std::collections::VecDeque;
 use std::convert::TryFrom;
 
 use nom::bytes::complete::tag;
