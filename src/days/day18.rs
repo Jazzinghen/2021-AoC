@@ -269,10 +269,24 @@ pub fn part1(input: &str) {
     );
 }
 
-pub fn _part2(_input: &str) {
-    // let (_, target_trench) = target(input).unwrap();
-    // let initial_velocities: HashSet<Point> = target_trench.compute_initial_velocities();
-    // println!("Amount of initial velocities: {}", initial_velocities.len());
+pub fn part2(input: &str) {
+    let mut arena: SailfishArena = Arena::new();
+    let mut max_magnitude: u64 = 0;
+
+    for (start_idx, first) in input.lines().enumerate() {
+        for second in input.lines().skip(start_idx + 1) {
+            let numbers = parse_numbers(format!("{}\n{}", first, second).as_str(), &mut arena);
+            let f_s_root = sum(&mut arena, numbers[0], numbers[1]);
+            max_magnitude = max_magnitude.max(compute_magnitude(&arena, f_s_root));
+            f_s_root.remove_subtree(&mut arena);
+
+            let numbers = parse_numbers(format!("{}\n{}", first, second).as_str(), &mut arena);
+            let s_f_root = sum(&mut arena, numbers[1], numbers[0]);
+            max_magnitude = max_magnitude.max(compute_magnitude(&arena, s_f_root));
+        }
+    }
+
+    println!("Maximum magnitude of all the pairs: {}", max_magnitude);
 }
 
 #[cfg(test)]
@@ -301,32 +315,6 @@ mod tests {
             }
         }
     }
-
-    /*
-    impl fmt::Debug for SailfishNumber {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            writeln!(f, "SailfishNumber {{")?;
-            writeln!(f, "data: BinaryTree::new(")?;
-            writeln!(f, "vec![")?;
-            for entry in self.data.arena.iter() {
-                writeln!(f, "{:?}", entry)?;
-                writeln!(f, ",")?;
-            }
-            writeln!(f, "]),")?;
-            writeln!(f, "deep_nodes: vec![")?;
-            for deep in self.deep_nodes.iter() {
-                writeln!(f, "{}, ", deep)?;
-            }
-            writeln!(f, "],")?;
-            writeln!(f, "large_nodes: vec![")?;
-            for large in self.large_nodes.iter() {
-                writeln!(f, "{}, ", large)?;
-            }
-            writeln!(f, "],")?;
-            writeln!(f, "}}")
-        }
-    }
-    */
 
     #[test]
     fn input_parsing() {
@@ -534,5 +522,38 @@ mod tests {
             "[[[[6,6],[7,6]],[[7,7],[7,0]]],[[[7,7],[7,7]],[[7,8],[9,9]]]]"
         );
         assert_eq!(compute_magnitude(&test_arena, total_idx), 4140);
+    }
+
+    #[test]
+    fn max_pair_magnitude() {
+        let input_string = "[[[0,[5,8]],[[1,7],[9,6]]],[[4,[1,2]],[[1,4],2]]]
+        [[[5,[2,8]],4],[5,[[9,9],0]]]
+        [6,[[[6,2],[5,6]],[[7,6],[4,7]]]]
+        [[[6,[0,7]],[0,9]],[4,[9,[9,0]]]]
+        [[[7,[6,4]],[3,[1,3]]],[[[5,5],1],9]]
+        [[6,[[7,3],[3,2]]],[[[3,8],[5,7]],4]]
+        [[[[5,4],[7,7]],8],[[8,3],8]]
+        [[9,3],[[9,9],[6,[4,9]]]]
+        [[2,[[7,7],7]],[[5,8],[[9,3],[0,2]]]]
+        [[[[5,2],5],[8,[3,7]]],[[5,[7,5]],[4,4]]]";
+
+        let mut test_arena: SailfishArena = Arena::new();
+        let mut max_magnitude: u64 = 0;
+        for (start_idx, first) in input_string.lines().enumerate() {
+            for second in input_string.lines().skip(start_idx + 1) {
+                let numbers =
+                    parse_numbers(format!("{}\n{}", first, second).as_str(), &mut test_arena);
+                let f_s_root = sum(&mut test_arena, numbers[0], numbers[1]);
+                max_magnitude = max_magnitude.max(compute_magnitude(&test_arena, f_s_root));
+                f_s_root.remove_subtree(&mut test_arena);
+
+                let numbers =
+                    parse_numbers(format!("{}\n{}", first, second).as_str(), &mut test_arena);
+                let s_f_root = sum(&mut test_arena, numbers[1], numbers[0]);
+                max_magnitude = max_magnitude.max(compute_magnitude(&test_arena, s_f_root));
+            }
+        }
+
+        assert_eq!(max_magnitude, 3993);
     }
 }
