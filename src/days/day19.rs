@@ -1,10 +1,8 @@
 use std::cmp::Ordering;
-use std::collections::VecDeque;
 use std::convert::TryInto;
 use std::env::temp_dir;
 use std::fs::File;
 use std::io::{Error, Write};
-use std::mem;
 
 use hashbrown::HashSet;
 use itertools::Itertools;
@@ -223,6 +221,7 @@ fn reconstruct_beacon_map(base_data: &[Point3<i64>], sensors: &[SensorData]) -> 
             .filter(|(idx, _)| sensors_to_parse.contains(idx))
             .collect();
         let remaining_idx: Vec<_> = remaining_sensors.iter().map(|(id, _)| id).collect();
+        println!("Remaining sensors to parse: {:?}", remaining_idx);
         for (sensor_idx, sensor_data) in remaining_sensors.into_iter() {
             if let Some((rot, translation)) = sensor_data.find_overlap(&full_map, 12) {
                 full_map = merge_sensors(
@@ -238,6 +237,20 @@ fn reconstruct_beacon_map(base_data: &[Point3<i64>], sensors: &[SensorData]) -> 
 
     full_map
 }
+
+pub fn part1(input: &str) {
+    let (_, mut sensors) = full_data(input).unwrap();
+
+    for sensor in sensors.iter_mut().skip(1) {
+        sensor.compute_rotations();
+    }
+
+    let beacon_volume = reconstruct_beacon_map(&sensors[0].beacons, &sensors[1..]);
+
+    println!("Total beacons count: {}", beacon_volume.len());
+}
+
+pub fn _part2(_input: &str) {}
 
 #[cfg(test)]
 mod tests {
