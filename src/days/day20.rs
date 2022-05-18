@@ -27,8 +27,8 @@ impl ImageEnhancer {
         let enhanced_rows = picture.rows + 2;
         let enhanced_cols = picture.cols + 2;
 
-        let coords: Vec<(usize, usize)> = (0..enhanced_cols)
-            .cartesian_product(0..enhanced_rows)
+        let coords: Vec<(usize, usize)> = (0..enhanced_rows)
+            .cartesian_product(0..enhanced_cols)
             .collect();
 
         let data: Vec<bool> = coords
@@ -42,12 +42,30 @@ impl ImageEnhancer {
         SensorImage::from_vec_dimensions(&data, enhanced_rows, enhanced_cols)
     }
 
-    fn compute_pixel_value(&self, pixels: &[bool]) -> bool {
+    fn compute_pixel_value(&self, pixels: &[bool; 9]) -> bool {
         let index = pixels.iter().fold(0usize, |total, pixel| {
             (total << 1) + if *pixel { 1 } else { 0 }
         });
 
         self.lut[index]
+    }
+}
+
+impl fmt::Display for ImageEnhancer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            f,
+            "     0             8              16              24              31"
+        )?;
+        writeln!(
+            f,
+            "     |             |               |               |               |"
+        )?;
+        for (line, bits) in self.lut.iter().chunks(32).into_iter().enumerate() {
+            write!(f, "{:3}  ", line * 32)?;
+            writeln!(f, "{}", bits.map(|b| if *b { '1' } else { '0' }).join(" "))?;
+        }
+        writeln!(f)
     }
 }
 
@@ -111,7 +129,7 @@ impl SensorImage {
     // This function gets a row-major pixel matrix centred on the given location
     // The location is based on the "extended" picture as the first usable pixel
     // of the picture influences a matrix centred in [-1, -1]
-    pub fn get_matrix(&self, x: usize, y: usize) -> Vec<bool> {
+    pub fn get_matrix(&self, x: usize, y: usize) -> [bool; 9] {
         assert!(x <= self.cols + 1 && y <= self.rows + 1);
 
         let centre_id = i32::try_from((y + 1) * (self.cols + 4) + x + 1).unwrap();
@@ -119,7 +137,9 @@ impl SensorImage {
         self.kernel_ids
             .iter()
             .map(|offset| self.data[usize::try_from(centre_id + *offset).unwrap()])
-            .collect()
+            .collect::<Vec<bool>>()
+            .try_into()
+            .unwrap()
     }
 
     pub fn get_lit_pixels(&self) -> usize {
@@ -130,11 +150,16 @@ impl SensorImage {
 impl fmt::Display for SensorImage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Image dimensions: [{}; {}]", self.rows, self.cols)?;
-        for row in 0..self.rows {
-            let row_data: String = self
-                .data
-                .iter()
-                .skip((row + 2) * (self.cols + 4) + 2)
+        for pixels in self
+            .data
+            .iter()
+            .chunks(self.cols + 4)
+            .into_iter()
+            .skip(2)
+            .take(self.rows)
+        {
+            let row_data: String = pixels
+                .skip(2)
                 .take(self.cols)
                 .map(|p| if *p { '#' } else { '.' })
                 .collect();
@@ -163,7 +188,17 @@ fn parse_input(input: &str) -> (ImageEnhancer, SensorImage) {
 pub fn part1(input: &str) {
     let (enhancer, picture) = parse_input(input);
 
+    println!("The lut is: ");
+    println!("{}", enhancer);
+
+    println!(
+        "The offset matrix for the picture is: {:?}",
+        picture.kernel_ids
+    );
+
     let first_pass = enhancer.enhance_picture(&picture);
+    println!("The image from the first pass is:");
+    println!("{}", first_pass);
     let second_pass = enhancer.enhance_picture(&first_pass);
 
     println!(
