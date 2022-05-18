@@ -8,13 +8,18 @@ use itertools::Itertools;
 use rayon::prelude::*;
 
 struct ImageEnhancer {
-    lut: Vec<bool>,
+    lut: [bool; 512],
 }
 
 impl ImageEnhancer {
     fn new(raw_data: &str) -> Self {
         Self {
-            lut: raw_data.chars().map(|c| c == '#').collect(),
+            lut: raw_data
+                .chars()
+                .map(|c| c == '#')
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
         }
     }
 
@@ -22,18 +27,26 @@ impl ImageEnhancer {
         let enhanced_rows = picture.rows + 2;
         let enhanced_cols = picture.cols + 2;
 
-        SensorImage {
-            rows: enhanced_rows,
-            cols: enhanced_cols,
-            data: vec![],
-            kernel_ids: [0; 9],
-        }
+        let coords: Vec<(usize, usize)> = (0..enhanced_cols)
+            .cartesian_product(0..enhanced_rows)
+            .collect();
+
+        let data: Vec<bool> = coords
+            .par_iter()
+            .map(|(y, x)| {
+                let matrix_data = picture.get_matrix(*x, *y);
+                self.compute_pixel_value(&matrix_data)
+            })
+            .collect();
+
+        SensorImage::from_vec_dimensions(&data, enhanced_rows, enhanced_cols)
     }
 
     fn compute_pixel_value(&self, pixels: &[bool]) -> bool {
         let index = pixels.iter().fold(0usize, |total, pixel| {
-            (total << 2) + if *pixel { 1 } else { 0 }
+            (total << 1) + if *pixel { 1 } else { 0 }
         });
+
         self.lut[index]
     }
 }
@@ -51,7 +64,7 @@ impl SensorImage {
         let rows = raw_data.lines().count();
         let cols = raw_data.lines().next().unwrap().chars().count();
 
-        let row_padding = vec![false; rows + 4];
+        let row_padding = vec![false; (rows + 4) * 2];
         let mut data: Vec<bool> = row_padding.clone();
         for data_line in raw_data.lines() {
             data.extend([false, false]);
@@ -60,44 +73,57 @@ impl SensorImage {
         }
         data.extend(row_padding.into_iter());
 
-        let mut kernel_ids = [0; 9];
-        let padding = i32::try_from(cols).unwrap() + 4;
-        for (id, (y, x)) in (-1..=1).cartesian_product(-1..=1).enumerate() {
-            kernel_ids[id] = y * padding + x;
+        Self {
+            rows,
+            cols,
+            data,
+            kernel_ids: Self::compute_offsets(i32::try_from(cols + 4).unwrap()),
         }
+    }
+
+    fn from_vec_dimensions(raw_data: &[bool], rows: usize, cols: usize) -> Self {
+        let row_padding = vec![false; (rows + 4) * 2];
+        let mut data: Vec<bool> = row_padding.clone();
+        for row in 0..rows {
+            data.extend([false, false]);
+            data.extend(raw_data.iter().skip(row * cols).take(cols));
+            data.extend([false, false]);
+        }
+        data.extend(row_padding.into_iter());
 
         Self {
             rows,
             cols,
             data,
-            kernel_ids,
+            kernel_ids: Self::compute_offsets(i32::try_from(cols + 4).unwrap()),
         }
     }
 
-    pub fn get_pixel_id(&self, x: usize, y: usize) -> Option<usize> {
-        if x < self.rows && y < self.cols {
-            Some((y + 2) * self.rows + x + 2)
-        } else {
-            None
-        }
+    fn compute_offsets(padding: i32) -> [i32; 9] {
+        (-1..=1)
+            .cartesian_product(-1..=1)
+            .map(|(y, x)| y * padding + x)
+            .collect::<Vec<i32>>()
+            .try_into()
+            .unwrap()
     }
 
-    pub fn get_pixel(&self, x: usize, y: usize) -> Option<bool> {
-        self.get_pixel_id(x, y).map(|idx| self.data[idx])
+    // This function gets a row-major pixel matrix centred on the given location
+    // The location is based on the "extended" picture as the first usable pixel
+    // of the picture influences a matrix centred in [-1, -1]
+    pub fn get_matrix(&self, x: usize, y: usize) -> Vec<bool> {
+        assert!(x <= self.cols + 1 && y <= self.rows + 1);
+
+        let centre_id = i32::try_from((y + 1) * (self.cols + 4) + x + 1).unwrap();
+
+        self.kernel_ids
+            .iter()
+            .map(|offset| self.data[usize::try_from(centre_id + *offset).unwrap()])
+            .collect()
     }
 
-    pub fn get_pixel_mut(&mut self, x: usize, y: usize) -> Option<&mut bool> {
-        if let Some(idx) = self.get_pixel_id(x, y) {
-            Some(&mut self.data[idx])
-        } else {
-            None
-        }
-    }
-
-    pub fn get_matrix(&self, x: usize, y: usize) -> Vec<&bool> {
-        assert!(x < self.cols && y < self.rows);
-
-        vec![]
+    pub fn get_lit_pixels(&self) -> usize {
+        self.data.iter().filter(|pixel| **pixel).count()
     }
 }
 
@@ -108,7 +134,7 @@ impl fmt::Display for SensorImage {
             let row_data: String = self
                 .data
                 .iter()
-                .skip((row + 1) * self.cols + 1)
+                .skip((row + 2) * (self.cols + 4) + 2)
                 .take(self.cols)
                 .map(|p| if *p { '#' } else { '.' })
                 .collect();
@@ -132,6 +158,18 @@ fn parse_input(input: &str) -> (ImageEnhancer, SensorImage) {
         ImageEnhancer::new(&enhance_string),
         SensorImage::new(&image_string),
     )
+}
+
+pub fn part1(input: &str) {
+    let (enhancer, picture) = parse_input(input);
+
+    let first_pass = enhancer.enhance_picture(&picture);
+    let second_pass = enhancer.enhance_picture(&first_pass);
+
+    println!(
+        "The enhanced picture has {} lit pixels",
+        second_pass.get_lit_pixels()
+    );
 }
 
 #[cfg(test)]
@@ -159,12 +197,13 @@ mod tests {
 
         let ref_picture = SensorImage {
             data: vec![
-                false, false, false, false, false, false, false, false, false, false, false, true,
-                false, false, true, false, false, false, false, false, true, false, false, false,
-                false, false, false, false, false, true, true, false, false, true, false, false,
-                false, false, false, false, true, false, false, false, false, false, false, false,
-                false, true, true, true, false, false, false, false, false, false, false, false,
-                false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, true, false, false, true,
+                false, false, false, false, false, true, false, false, false, false, false, false,
+                false, false, true, true, false, false, true, false, false, false, false, false,
+                false, true, false, false, false, false, false, false, false, false, true, true,
+                true, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false,
             ],
             rows: 5,
             cols: 5,
@@ -173,5 +212,83 @@ mod tests {
 
         assert_eq!(enhancer.lut.len(), 512);
         assert_eq!(picture, ref_picture);
+    }
+
+    #[test]
+    fn one_enhancement_step() {
+        let input_string =
+            "..#.#..#####.#.#.#.###.##.....###.##.#..###.####..#####..#....#..#..##..##\
+            #..######.###...####..#..#####..##..#.#####...##.#.#..#.##..#.#......#.###\
+            .######.###.####...#.##.##..#..#..#####.....#.#....###..#.##......#.....#.\
+            .#..#..##..#...##.######.####.####.#.#...#.......#..#.#.#...####.##.#.....\
+            .#..#...##.#.##..#...##.#.##..###.#......#.#.......#.#.#.####.###.##...#..\
+            ...####.#..#..#.##.#....##..#.####....##...##..#...#......#.#.......#.....\
+            ..##..####..#...#.#.#...##..#.#..###..#####........#..####......#..#
+
+            #..#.
+            #....
+            ##..#
+            ..#..
+            ..###";
+
+        let (enhancer, picture) = parse_input(input_string);
+
+        let first_pass = enhancer.enhance_picture(&picture);
+
+        let first_pass_ref_str = ".##.##.
+        #..#.#.
+        ##.#..#
+        ####..#
+        .#..##.
+        ..##..#
+        ...#.#.";
+        let cleaned_ref_str: String = first_pass_ref_str
+            .lines()
+            .map(|l| format!("{}\n", l.trim_start()))
+            .collect();
+        let first_pass_ref = SensorImage::new(&cleaned_ref_str);
+
+        assert_eq!(first_pass, first_pass_ref);
+    }
+
+    #[test]
+    fn full_enhancement() {
+        let input_string =
+            "..#.#..#####.#.#.#.###.##.....###.##.#..###.####..#####..#....#..#..##..##\
+            #..######.###...####..#..#####..##..#.#####...##.#.#..#.##..#.#......#.###\
+            .######.###.####...#.##.##..#..#..#####.....#.#....###..#.##......#.....#.\
+            .#..#..##..#...##.######.####.####.#.#...#.......#..#.#.#...####.##.#.....\
+            .#..#...##.#.##..#...##.#.##..###.#......#.#.......#.#.#.####.###.##...#..\
+            ...####.#..#..#.##.#....##..#.####....##...##..#...#......#.#.......#.....\
+            ..##..####..#...#.#.#...##..#.#..###..#####........#..####......#..#
+
+            #..#.
+            #....
+            ##..#
+            ..#..
+            ..###";
+
+        let (enhancer, picture) = parse_input(input_string);
+
+        let first_pass = enhancer.enhance_picture(&picture);
+        let second_pass = enhancer.enhance_picture(&first_pass);
+
+        let second_pass_ref_str = ".......#.
+        .#..#.#..
+        #.#...###
+        #...##.#.
+        #.....#.#
+        .#.#####.
+        ..#.#####
+        ...##.##.
+        ....###..";
+        let cleaned_ref_str: String = second_pass_ref_str
+            .lines()
+            .map(|l| format!("{}\n", l.trim_start()))
+            .collect();
+        let second_pass_ref = SensorImage::new(&cleaned_ref_str);
+
+        assert_eq!(second_pass, second_pass_ref);
+        assert_eq!(second_pass.get_lit_pixels(), 35);
     }
 }
