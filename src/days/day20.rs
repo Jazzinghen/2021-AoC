@@ -27,6 +27,12 @@ impl ImageEnhancer {
         let enhanced_rows = picture.rows + 2;
         let enhanced_cols = picture.cols + 2;
 
+        let padding_data = if picture.padding_value {
+            self.lut.last().unwrap()
+        } else {
+            self.lut.first().unwrap()
+        };
+
         let coords: Vec<(usize, usize)> = (0..enhanced_rows)
             .cartesian_product(0..enhanced_cols)
             .collect();
@@ -39,7 +45,7 @@ impl ImageEnhancer {
             })
             .collect();
 
-        SensorImage::from_vec_dimensions(&data, enhanced_rows, enhanced_cols)
+        SensorImage::from_vec_dimensions(&data, enhanced_rows, enhanced_cols, *padding_data)
     }
 
     fn compute_pixel_value(&self, pixels: &[bool; 9]) -> bool {
@@ -75,6 +81,7 @@ struct SensorImage {
     cols: usize,
     data: Vec<bool>,
     kernel_ids: [i32; 9],
+    padding_value: bool,
 }
 
 impl SensorImage {
@@ -96,16 +103,22 @@ impl SensorImage {
             cols,
             data,
             kernel_ids: Self::compute_offsets(i32::try_from(cols + 4).unwrap()),
+            padding_value: false,
         }
     }
 
-    fn from_vec_dimensions(raw_data: &[bool], rows: usize, cols: usize) -> Self {
-        let row_padding = vec![false; (rows + 4) * 2];
+    fn from_vec_dimensions(
+        raw_data: &[bool],
+        rows: usize,
+        cols: usize,
+        padding_value: bool,
+    ) -> Self {
+        let row_padding = vec![padding_value; (rows + 4) * 2];
         let mut data: Vec<bool> = row_padding.clone();
         for row in 0..rows {
-            data.extend([false, false]);
+            data.extend([padding_value, padding_value]);
             data.extend(raw_data.iter().skip(row * cols).take(cols));
-            data.extend([false, false]);
+            data.extend([padding_value, padding_value]);
         }
         data.extend(row_padding.into_iter());
 
@@ -114,6 +127,7 @@ impl SensorImage {
             cols,
             data,
             kernel_ids: Self::compute_offsets(i32::try_from(cols + 4).unwrap()),
+            padding_value,
         }
     }
 
@@ -142,14 +156,24 @@ impl SensorImage {
             .unwrap()
     }
 
-    pub fn get_lit_pixels(&self) -> usize {
-        self.data.iter().filter(|pixel| **pixel).count()
+    // If we have a "lit" padding, that means that we will have INFINITE lit pixels
+    pub fn get_lit_pixels(&self) -> Option<usize> {
+        if !self.padding_value {
+            Some(self.data.iter().filter(|pixel| **pixel).count())
+        } else {
+            None
+        }
     }
 }
 
 impl fmt::Display for SensorImage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Image dimensions: [{}; {}]", self.rows, self.cols)?;
+        writeln!(
+            f,
+            "Padding data: {}",
+            if self.padding_value { '#' } else { '.' }
+        )?;
         for pixels in self
             .data
             .iter()
@@ -188,22 +212,26 @@ fn parse_input(input: &str) -> (ImageEnhancer, SensorImage) {
 pub fn part1(input: &str) {
     let (enhancer, picture) = parse_input(input);
 
-    println!("The lut is: ");
-    println!("{}", enhancer);
-
-    println!(
-        "The offset matrix for the picture is: {:?}",
-        picture.kernel_ids
-    );
-
     let first_pass = enhancer.enhance_picture(&picture);
-    println!("The image from the first pass is:");
-    println!("{}", first_pass);
     let second_pass = enhancer.enhance_picture(&first_pass);
 
     println!(
-        "The enhanced picture has {} lit pixels",
+        "The enhanced picture has {:?} lit pixels",
         second_pass.get_lit_pixels()
+    );
+}
+
+pub fn part2(input: &str) {
+    let (enhancer, picture) = parse_input(input);
+
+    let mut final_image = picture;
+    for _ in 0..50 {
+        final_image = enhancer.enhance_picture(&final_image);
+    }
+
+    println!(
+        "The enhanced picture has {:?} lit pixels",
+        final_image.get_lit_pixels()
     );
 }
 
@@ -243,6 +271,7 @@ mod tests {
             rows: 5,
             cols: 5,
             kernel_ids: [-10, -9, -8, -1, 0, 1, 8, 9, 10],
+            padding_value: false,
         };
 
         assert_eq!(enhancer.lut.len(), 512);
@@ -270,18 +299,25 @@ mod tests {
 
         let first_pass = enhancer.enhance_picture(&picture);
 
-        let first_pass_ref_str = ".##.##.
-        #..#.#.
-        ##.#..#
-        ####..#
-        .#..##.
-        ..##..#
-        ...#.#.";
-        let cleaned_ref_str: String = first_pass_ref_str
-            .lines()
-            .map(|l| format!("{}\n", l.trim_start()))
-            .collect();
-        let first_pass_ref = SensorImage::new(&cleaned_ref_str);
+        let first_pass_ref = SensorImage {
+            rows: 7,
+            cols: 7,
+            data: vec![
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, true, true, false, true, true, false, false, false, false, false, true,
+                false, false, true, false, true, false, false, false, false, false, true, true,
+                false, true, false, false, true, false, false, false, false, true, true, true,
+                true, false, false, true, false, false, false, false, false, true, false, false,
+                true, true, false, false, false, false, false, false, false, true, true, false,
+                false, true, false, false, false, false, false, false, false, true, false, true,
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false,
+            ],
+            kernel_ids: [-12, -11, -10, -1, 0, 1, 10, 11, 12],
+            padding_value: false,
+        };
 
         assert_eq!(first_pass, first_pass_ref);
     }
@@ -308,22 +344,157 @@ mod tests {
         let first_pass = enhancer.enhance_picture(&picture);
         let second_pass = enhancer.enhance_picture(&first_pass);
 
-        let second_pass_ref_str = ".......#.
-        .#..#.#..
-        #.#...###
-        #...##.#.
-        #.....#.#
-        .#.#####.
-        ..#.#####
-        ...##.##.
-        ....###..";
-        let cleaned_ref_str: String = second_pass_ref_str
-            .lines()
-            .map(|l| format!("{}\n", l.trim_start()))
-            .collect();
-        let second_pass_ref = SensorImage::new(&cleaned_ref_str);
+        let second_pass_ref = SensorImage {
+            rows: 9,
+            cols: 9,
+            data: vec![
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, true,
+                false, false, false, false, false, false, true, false, false, true, false, true,
+                false, false, false, false, false, false, true, false, true, false, false, false,
+                true, true, true, false, false, false, false, true, false, false, false, true,
+                true, false, true, false, false, false, false, false, true, false, false, false,
+                false, false, true, false, true, false, false, false, false, false, true, false,
+                true, true, true, true, true, false, false, false, false, false, false, false,
+                true, false, true, true, true, true, true, false, false, false, false, false,
+                false, false, true, true, false, true, true, false, false, false, false, false,
+                false, false, false, false, true, true, true, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false,
+            ],
+            kernel_ids: [-14, -13, -12, -1, 0, 1, 12, 13, 14],
+            padding_value: false,
+        };
 
         assert_eq!(second_pass, second_pass_ref);
-        assert_eq!(second_pass.get_lit_pixels(), 35);
+        assert_eq!(second_pass.get_lit_pixels(), Some(35));
+    }
+
+    #[test]
+    fn totally_bonkers_enhancement() {
+        let input_string =
+            "..#.#..#####.#.#.#.###.##.....###.##.#..###.####..#####..#....#..#..##..##\
+            #..######.###...####..#..#####..##..#.#####...##.#.#..#.##..#.#......#.###\
+            .######.###.####...#.##.##..#..#..#####.....#.#....###..#.##......#.....#.\
+            .#..#..##..#...##.######.####.####.#.#...#.......#..#.#.#...####.##.#.....\
+            .#..#...##.#.##..#...##.#.##..###.#......#.#.......#.#.#.####.###.##...#..\
+            ...####.#..#..#.##.#....##..#.####....##...##..#...#......#.#.......#.....\
+            ..##..####..#...#.#.#...##..#.#..###..#####........#..####......#..#
+
+            #..#.
+            #....
+            ##..#
+            ..#..
+            ..###";
+
+        let (enhancer, picture) = parse_input(input_string);
+
+        let mut final_image = picture;
+
+        for _ in 0..50 {
+            final_image = enhancer.enhance_picture(&final_image);
+        }
+
+        assert_eq!(final_image.get_lit_pixels(), Some(3351));
+    }
+
+    #[test]
+    fn full_enhancement_flipping_pad() {
+        let input_string =
+            "#.#.#..#####.#.#.#.###.##.....###.##.#..###.####..#####..#....#..#..##..##\
+            #..######.###...####..#..#####..##..#.#####...##.#.#..#.##..#.#......#.###\
+            .######.###.####...#.##.##..#..#..#####.....#.#....###..#.##......#.....#.\
+            .#..#..##..#...##.######.####.####.#.#...#.......#..#.#.#...####.##.#.....\
+            .#..#...##.#.##..#...##.#.##..###.#......#.#.......#.#.#.####.###.##...#..\
+            ...####.#..#..#.##.#....##..#.####....##...##..#...#......#.#.......#.....\
+            ..##..####..#...#.#.#...##..#.#..###..#####........#..####......#...
+
+            #..#.
+            #....
+            ##..#
+            ..#..
+            ..###";
+
+        let (enhancer, picture) = parse_input(input_string);
+
+        let first_pass = enhancer.enhance_picture(&picture);
+        let second_pass = enhancer.enhance_picture(&first_pass);
+
+        let second_pass_ref = SensorImage {
+            rows: 9,
+            cols: 9,
+            data: vec![
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, true, false,
+                false, false, false, false, false, false, true, true, true, false, false, false,
+                false, false, false, false, false, false, false, false, true, false, false, true,
+                true, true, false, false, false, false, false, false, false, false, false, false,
+                false, false, true, false, false, false, false, false, false, false, true, false,
+                false, true, true, true, false, true, false, false, false, false, true, false,
+                false, true, true, true, true, true, false, false, false, false, false, false,
+                false, false, true, false, false, false, false, true, false, false, false, false,
+                false, false, true, false, false, false, false, false, true, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false,
+                false,
+            ],
+            kernel_ids: [-14, -13, -12, -1, 0, 1, 12, 13, 14],
+            padding_value: false,
+        };
+
+        assert_eq!(second_pass, second_pass_ref);
+        assert_eq!(second_pass.get_lit_pixels(), Some(24));
+    }
+
+    #[test]
+    fn full_enhancement_one_pad_change() {
+        let input_string =
+            "#.#.#..#####.#.#.#.###.##.....###.##.#..###.####..#####..#....#..#..##..##\
+            #..######.###...####..#..#####..##..#.#####...##.#.#..#.##..#.#......#.###\
+            .######.###.####...#.##.##..#..#..#####.....#.#....###..#.##......#.....#.\
+            .#..#..##..#...##.######.####.####.#.#...#.......#..#.#.#...####.##.#.....\
+            .#..#...##.#.##..#...##.#.##..###.#......#.#.......#.#.#.####.###.##...#..\
+            ...####.#..#..#.##.#....##..#.####....##...##..#...#......#.#.......#.....\
+            ..##..####..#...#.#.#...##..#.#..###..#####........#..####......#..#
+
+            #..#.
+            #....
+            ##..#
+            ..#..
+            ..###";
+
+        let (enhancer, picture) = parse_input(input_string);
+
+        let first_pass = enhancer.enhance_picture(&picture);
+        let second_pass = enhancer.enhance_picture(&first_pass);
+
+        let second_pass_ref = SensorImage {
+            rows: 9,
+            cols: 9,
+            data: vec![
+                true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+                true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+                false, false, false, false, false, false, true, true, true, true, true, true, true,
+                false, false, false, false, false, true, false, true, true, true, true, true, true,
+                true, true, true, false, false, false, false, false, true, true, true, true, true,
+                true, true, false, false, true, true, true, false, true, true, true, true, true,
+                false, false, false, false, false, false, true, false, false, true, true, true,
+                true, false, true, false, false, true, true, true, false, true, true, true, true,
+                true, true, false, false, true, true, true, true, true, false, true, true, true,
+                true, true, true, false, true, false, false, false, false, true, true, true, true,
+                true, true, true, true, false, false, false, false, false, true, true, true, true,
+                true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+                true, true, true, true, true, true, true, true, true, true, true,
+            ],
+            kernel_ids: [-14, -13, -12, -1, 0, 1, 12, 13, 14],
+            padding_value: true,
+        };
+
+        assert_eq!(second_pass, second_pass_ref);
+        assert!(second_pass.get_lit_pixels().is_none());
     }
 }
