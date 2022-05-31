@@ -206,6 +206,13 @@ impl Cuboid {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
+enum IntersectionType {
+    Equal(),
+    Standard(Vec<PowerCuboid>),
+    Superset(Vec<PowerCuboid>),
+    Subset(Vec<PowerCuboid>),
+}
+#[derive(Debug, PartialEq, Eq, Clone)]
 struct PowerCuboid {
     volume: Cuboid,
     power_state: bool,
@@ -230,7 +237,7 @@ impl PowerCuboid {
         }
     }
 
-    pub fn intersect(&self, other: &Self) -> Option<Vec<Self>> {
+    pub fn intersect(&self, other: &Self) -> Option<(PowerCuboid, IntersectionType)> {
         let cutting_planes = self.volume.intersection_planes(&other.volume)?;
 
         // Compute all the resulting cuts from removing the intersection from us and the other cube
@@ -240,21 +247,39 @@ impl PowerCuboid {
         // The intersection from both extractions
         assert!(our_intersection == other_intersection);
 
-        let mut new_power_cubes = vec![PowerCuboid {
+        let intersection = PowerCuboid {
             volume: other_intersection,
             power_state: other.power_state,
-        }];
+        };
 
-        new_power_cubes.extend(our_cuts.into_iter().map(|volume| Self {
-            volume,
-            power_state: self.power_state,
-        }));
-        new_power_cubes.extend(other_cuts.into_iter().map(|volume| Self {
+        if our_cuts.is_empty() && other_cuts.is_empty() {
+            return Some((intersection, IntersectionType::Equal()));
+        }
+
+        let empty_ours = our_cuts.is_empty();
+        let empty_other = other_cuts.is_empty();
+
+        let mut final_cuts: Vec<PowerCuboid> = our_cuts
+            .into_iter()
+            .map(|volume| Self {
+                volume,
+                power_state: self.power_state,
+            })
+            .collect_vec();
+        final_cuts.extend(other_cuts.into_iter().map(|volume| Self {
             volume,
             power_state: other.power_state,
         }));
 
-        Some(new_power_cubes)
+        if empty_ours {
+            return Some((intersection, IntersectionType::Subset(final_cuts)));
+        };
+
+        if empty_other {
+            return Some((intersection, IntersectionType::Superset(final_cuts)));
+        }
+
+        Some((intersection, IntersectionType::Standard(final_cuts)))
     }
 }
 
@@ -326,7 +351,7 @@ mod tests {
 
         let intersection = cubes[0].intersect(&cubes[1]).unwrap();
 
-        let ref_intersection = vec![
+        let ref_intersection = (
             PowerCuboid {
                 volume: Cuboid {
                     top_right: Point3::new(12, 12, 12),
@@ -334,49 +359,51 @@ mod tests {
                 },
                 power_state: true,
             },
-            PowerCuboid {
-                volume: Cuboid {
-                    top_right: Point3::new(10, 12, 12),
-                    bottom_left: Point3::new(10, 10, 10),
+            IntersectionType::Standard(vec![
+                PowerCuboid {
+                    volume: Cuboid {
+                        top_right: Point3::new(10, 12, 12),
+                        bottom_left: Point3::new(10, 10, 10),
+                    },
+                    power_state: true,
                 },
-                power_state: true,
-            },
-            PowerCuboid {
-                volume: Cuboid {
-                    top_right: Point3::new(12, 10, 12),
-                    bottom_left: Point3::new(11, 10, 10),
+                PowerCuboid {
+                    volume: Cuboid {
+                        top_right: Point3::new(12, 10, 12),
+                        bottom_left: Point3::new(11, 10, 10),
+                    },
+                    power_state: true,
                 },
-                power_state: true,
-            },
-            PowerCuboid {
-                volume: Cuboid {
-                    top_right: Point3::new(12, 12, 10),
-                    bottom_left: Point3::new(11, 11, 10),
+                PowerCuboid {
+                    volume: Cuboid {
+                        top_right: Point3::new(12, 12, 10),
+                        bottom_left: Point3::new(11, 11, 10),
+                    },
+                    power_state: true,
                 },
-                power_state: true,
-            },
-            PowerCuboid {
-                volume: Cuboid {
-                    top_right: Point3::new(13, 13, 13),
-                    bottom_left: Point3::new(13, 11, 11),
+                PowerCuboid {
+                    volume: Cuboid {
+                        top_right: Point3::new(13, 13, 13),
+                        bottom_left: Point3::new(13, 11, 11),
+                    },
+                    power_state: true,
                 },
-                power_state: true,
-            },
-            PowerCuboid {
-                volume: Cuboid {
-                    top_right: Point3::new(12, 13, 13),
-                    bottom_left: Point3::new(11, 13, 11),
+                PowerCuboid {
+                    volume: Cuboid {
+                        top_right: Point3::new(12, 13, 13),
+                        bottom_left: Point3::new(11, 13, 11),
+                    },
+                    power_state: true,
                 },
-                power_state: true,
-            },
-            PowerCuboid {
-                volume: Cuboid {
-                    top_right: Point3::new(12, 12, 13),
-                    bottom_left: Point3::new(11, 11, 13),
+                PowerCuboid {
+                    volume: Cuboid {
+                        top_right: Point3::new(12, 12, 13),
+                        bottom_left: Point3::new(11, 11, 13),
+                    },
+                    power_state: true,
                 },
-                power_state: true,
-            },
-        ];
+            ]),
+        );
 
         assert_eq!(intersection, ref_intersection);
     }
@@ -405,6 +432,24 @@ mod tests {
     }
 
     #[test]
+    fn self_intersection() {
+        let input_string = "on x=10..12,y=10..12,z=10..12";
+
+        let cubes: Vec<PowerCuboid> = input_string
+            .lines()
+            .map(|line| {
+                let (_, cube) = power_cube(line).unwrap();
+                cube
+            })
+            .collect();
+
+        let (intersection, int_type) = cubes[0].intersect(&cubes[0]).unwrap();
+
+        assert_eq!(int_type, IntersectionType::Equal());
+        assert_eq!(intersection, cubes[0]);
+    }
+
+    #[test]
     fn power_switch_intersection() {
         let input_string = "on x=10..12,y=10..12,z=10..12
         off x=11..13,y=11..13,z=11..13";
@@ -419,7 +464,7 @@ mod tests {
 
         let intersection = cubes[0].intersect(&cubes[1]).unwrap();
 
-        let ref_intersection = vec![
+        let ref_intersection = (
             PowerCuboid {
                 volume: Cuboid {
                     top_right: Point3::new(12, 12, 12),
@@ -427,49 +472,51 @@ mod tests {
                 },
                 power_state: false,
             },
-            PowerCuboid {
-                volume: Cuboid {
-                    top_right: Point3::new(10, 12, 12),
-                    bottom_left: Point3::new(10, 10, 10),
+            IntersectionType::Standard(vec![
+                PowerCuboid {
+                    volume: Cuboid {
+                        top_right: Point3::new(10, 12, 12),
+                        bottom_left: Point3::new(10, 10, 10),
+                    },
+                    power_state: true,
                 },
-                power_state: true,
-            },
-            PowerCuboid {
-                volume: Cuboid {
-                    top_right: Point3::new(12, 10, 12),
-                    bottom_left: Point3::new(11, 10, 10),
+                PowerCuboid {
+                    volume: Cuboid {
+                        top_right: Point3::new(12, 10, 12),
+                        bottom_left: Point3::new(11, 10, 10),
+                    },
+                    power_state: true,
                 },
-                power_state: true,
-            },
-            PowerCuboid {
-                volume: Cuboid {
-                    top_right: Point3::new(12, 12, 10),
-                    bottom_left: Point3::new(11, 11, 10),
+                PowerCuboid {
+                    volume: Cuboid {
+                        top_right: Point3::new(12, 12, 10),
+                        bottom_left: Point3::new(11, 11, 10),
+                    },
+                    power_state: true,
                 },
-                power_state: true,
-            },
-            PowerCuboid {
-                volume: Cuboid {
-                    top_right: Point3::new(13, 13, 13),
-                    bottom_left: Point3::new(13, 11, 11),
+                PowerCuboid {
+                    volume: Cuboid {
+                        top_right: Point3::new(13, 13, 13),
+                        bottom_left: Point3::new(13, 11, 11),
+                    },
+                    power_state: false,
                 },
-                power_state: false,
-            },
-            PowerCuboid {
-                volume: Cuboid {
-                    top_right: Point3::new(12, 13, 13),
-                    bottom_left: Point3::new(11, 13, 11),
+                PowerCuboid {
+                    volume: Cuboid {
+                        top_right: Point3::new(12, 13, 13),
+                        bottom_left: Point3::new(11, 13, 11),
+                    },
+                    power_state: false,
                 },
-                power_state: false,
-            },
-            PowerCuboid {
-                volume: Cuboid {
-                    top_right: Point3::new(12, 12, 13),
-                    bottom_left: Point3::new(11, 11, 13),
+                PowerCuboid {
+                    volume: Cuboid {
+                        top_right: Point3::new(12, 12, 13),
+                        bottom_left: Point3::new(11, 11, 13),
+                    },
+                    power_state: false,
                 },
-                power_state: false,
-            },
-        ];
+            ]),
+        );
 
         assert_eq!(intersection, ref_intersection);
     }
@@ -516,6 +563,22 @@ mod tests {
             })
             .collect();
 
-        assert_eq!(cubes.len(), 20);
+        assert_eq!(cubes.len(), 21);
+
+        let mut final_power_cuboids = vec![cubes[0].clone()];
+
+        for next_cuboid in cubes.into_iter().skip(1) {
+            let mut cuboid_exploration = final_power_cuboids;
+            let mut new_power_cuboids: Vec<PowerCuboid> = Vec::new();
+
+            while let Some(other_cuboid) = cuboid_exploration.pop() {
+                if let Some(cuts) = other_cuboid.intersect(&next_cuboid) {
+                } else {
+                    new_power_cuboids.push(other_cuboid);
+                }
+            }
+
+            final_power_cuboids = new_power_cuboids;
+        }
     }
 }
