@@ -9,7 +9,7 @@ use nom::multi::separated_list1;
 use nom::sequence::{delimited, pair, preceded, separated_pair};
 use nom::IResult;
 
-enum CutAxis {
+enum CutPlane {
     X(i32),
     Y(i32),
     Z(i32),
@@ -56,30 +56,17 @@ fn power_cube(input: &str) -> IResult<&str, PowerCuboid> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-struct PowerCuboid {
+struct Cuboid {
     top_right: Point3<i32>,
     bottom_left: Point3<i32>,
-    power_state: bool,
 }
 
-impl PowerCuboid {
-    fn new(
-        power_state: bool,
-        x_range: (i32, i32),
-        y_range: (i32, i32),
-        z_range: (i32, i32),
-    ) -> Self {
-        let bottom_left: Point3<i32> = Point3::new(x_range.0, y_range.0, z_range.0);
-        let top_right: Point3<i32> = Point3::new(x_range.1, y_range.1, z_range.1);
-
-        Self {
-            top_right,
-            bottom_left,
-            power_state,
-        }
+impl Cuboid {
+    pub fn inside_volume(&self, volume: &Cuboid) -> bool {
+        self.bottom_left >= volume.bottom_left && self.top_right <= volume.top_right
     }
 
-    pub fn intersect(&self, other: &Self) -> Option<Vec<Self>> {
+    pub fn intersection_planes(&self, other: &Self) -> Option<[(CutPlane, CutPlane); 3]> {
         if self.bottom_left > other.top_right || self.top_right < other.bottom_left {
             return None;
         };
@@ -97,122 +84,17 @@ impl PowerCuboid {
             self.top_right.z.min(other.top_right.z),
         );
 
-        let cutting_planes = vec![
-            (CutAxis::X(min_x), CutAxis::X(max_x + 1)),
-            (CutAxis::Y(min_y), CutAxis::Y(max_y + 1)),
-            (CutAxis::Z(min_z), CutAxis::Z(max_z + 1)),
-        ];
-
-        // Add intersection to the result
-        let mut final_cubes = vec![Self {
-            top_right: Point3::new(max_x, max_y, max_z),
-            bottom_left: Point3::new(min_x, min_y, min_z),
-            power_state: other.power_state,
-        }];
-
-        // Compute all the resulting cuts from removing the intersection from us and the other cube
-        let (our_intersection, our_cuts) = self.extract_intersection(&cutting_planes);
-        let (other_intersection, other_cuts) = other.extract_intersection(&cutting_planes);
-
-        // The intersection from both extractions
-        assert!(
-            our_intersection.top_right == final_cubes[0].top_right
-                && our_intersection.bottom_left == final_cubes[0].bottom_left
-        );
-        assert!(
-            other_intersection.top_right == final_cubes[0].top_right
-                && other_intersection.bottom_left == final_cubes[0].bottom_left
-        );
-
-        final_cubes.extend(our_cuts.into_iter());
-        final_cubes.extend(other_cuts.into_iter());
-
-        Some(final_cubes)
-    }
-
-    fn cut_along(&self, cut: &CutAxis) -> Option<(Self, Self)> {
-        match *cut {
-            CutAxis::X(coord) => {
-                if coord <= self.bottom_left.x || coord > self.top_right.x {
-                    None
-                } else {
-                    let new_left = Self {
-                        power_state: self.power_state,
-                        bottom_left: self.bottom_left,
-                        top_right: Point3::new(coord - 1, self.top_right.y, self.top_right.z),
-                    };
-                    let new_right = Self {
-                        power_state: self.power_state,
-                        bottom_left: Point3::new(coord, self.bottom_left.y, self.bottom_left.z),
-                        top_right: self.top_right,
-                    };
-                    Some((new_left, new_right))
-                }
-            }
-            CutAxis::Y(coord) => {
-                if coord <= self.bottom_left.y || coord > self.top_right.y {
-                    None
-                } else {
-                    let new_bottom = Self {
-                        power_state: self.power_state,
-                        bottom_left: self.bottom_left,
-                        top_right: Point3::new(self.top_right.x, coord - 1, self.top_right.z),
-                    };
-                    let new_top = Self {
-                        power_state: self.power_state,
-                        bottom_left: Point3::new(self.bottom_left.x, coord, self.bottom_left.z),
-                        top_right: self.top_right,
-                    };
-                    Some((new_bottom, new_top))
-                }
-            }
-            CutAxis::Z(coord) => {
-                if coord <= self.bottom_left.z || coord > self.top_right.z {
-                    None
-                } else {
-                    let new_back = Self {
-                        power_state: self.power_state,
-                        bottom_left: self.bottom_left,
-                        top_right: Point3::new(self.top_right.x, self.top_right.y, coord - 1),
-                    };
-                    let new_front = Self {
-                        power_state: self.power_state,
-                        bottom_left: Point3::new(self.bottom_left.x, self.bottom_left.y, coord),
-                        top_right: self.top_right,
-                    };
-                    Some((new_back, new_front))
-                }
-            }
-        }
-    }
-
-    fn one_axis_extraction(
-        &self,
-        low: &CutAxis,
-        high: &CutAxis,
-    ) -> (Option<PowerCuboid>, PowerCuboid, Option<PowerCuboid>) {
-        let mut result: (Option<PowerCuboid>, PowerCuboid, Option<PowerCuboid>) =
-            (None, self.clone(), None);
-        if let Some(our_first_cut_low) = self.cut_along(low) {
-            result.0 = Some(our_first_cut_low.0);
-            if let Some(second_cut) = our_first_cut_low.1.cut_along(high) {
-                result.1 = second_cut.0;
-                result.2 = Some(second_cut.1);
-            } else {
-                result.1 = our_first_cut_low.1;
-            }
-        } else if let Some(second_cut) = self.cut_along(high) {
-            result.1 = second_cut.0;
-            result.2 = Some(second_cut.1);
-        };
-
-        result
+        Some([
+            (CutPlane::X(min_x), CutPlane::X(max_x + 1)),
+            (CutPlane::Y(min_y), CutPlane::Y(max_y + 1)),
+            (CutPlane::Z(min_z), CutPlane::Z(max_z + 1)),
+        ])
     }
 
     pub fn extract_intersection(
         &self,
-        cutting_planes: &[(CutAxis, CutAxis)],
-    ) -> (PowerCuboid, Vec<PowerCuboid>) {
+        cutting_planes: &[(CutPlane, CutPlane)],
+    ) -> (Cuboid, Vec<Cuboid>) {
         // Compute all the resulting cuts from removing the intersection from us
         let (left_cut, first_intersection, right_cut) =
             self.one_axis_extraction(&cutting_planes[0].0, &cutting_planes[0].1);
@@ -221,7 +103,7 @@ impl PowerCuboid {
         let (back_cut, final_intersection, front_cut) =
             second_intersection.one_axis_extraction(&cutting_planes[2].0, &cutting_planes[2].1);
 
-        let mut result: Vec<PowerCuboid> = Vec::new();
+        let mut result: Vec<Cuboid> = Vec::new();
 
         if let Some(left) = left_cut {
             result.push(left)
@@ -249,6 +131,131 @@ impl PowerCuboid {
 
         (final_intersection, result)
     }
+
+    fn cut_along(&self, cut: &CutPlane) -> Option<(Self, Self)> {
+        match *cut {
+            CutPlane::X(coord) => {
+                if coord <= self.bottom_left.x || coord > self.top_right.x {
+                    None
+                } else {
+                    let new_left = Self {
+                        bottom_left: self.bottom_left,
+                        top_right: Point3::new(coord - 1, self.top_right.y, self.top_right.z),
+                    };
+                    let new_right = Self {
+                        bottom_left: Point3::new(coord, self.bottom_left.y, self.bottom_left.z),
+                        top_right: self.top_right,
+                    };
+                    Some((new_left, new_right))
+                }
+            }
+            CutPlane::Y(coord) => {
+                if coord <= self.bottom_left.y || coord > self.top_right.y {
+                    None
+                } else {
+                    let new_bottom = Self {
+                        bottom_left: self.bottom_left,
+                        top_right: Point3::new(self.top_right.x, coord - 1, self.top_right.z),
+                    };
+                    let new_top = Self {
+                        bottom_left: Point3::new(self.bottom_left.x, coord, self.bottom_left.z),
+                        top_right: self.top_right,
+                    };
+                    Some((new_bottom, new_top))
+                }
+            }
+            CutPlane::Z(coord) => {
+                if coord <= self.bottom_left.z || coord > self.top_right.z {
+                    None
+                } else {
+                    let new_back = Self {
+                        bottom_left: self.bottom_left,
+                        top_right: Point3::new(self.top_right.x, self.top_right.y, coord - 1),
+                    };
+                    let new_front = Self {
+                        bottom_left: Point3::new(self.bottom_left.x, self.bottom_left.y, coord),
+                        top_right: self.top_right,
+                    };
+                    Some((new_back, new_front))
+                }
+            }
+        }
+    }
+
+    fn one_axis_extraction(
+        &self,
+        low: &CutPlane,
+        high: &CutPlane,
+    ) -> (Option<Self>, Self, Option<Self>) {
+        let mut result: (Option<Self>, Self, Option<Self>) = (None, self.clone(), None);
+        if let Some(our_first_cut_low) = self.cut_along(low) {
+            result.0 = Some(our_first_cut_low.0);
+            if let Some(second_cut) = our_first_cut_low.1.cut_along(high) {
+                result.1 = second_cut.0;
+                result.2 = Some(second_cut.1);
+            } else {
+                result.1 = our_first_cut_low.1;
+            }
+        } else if let Some(second_cut) = self.cut_along(high) {
+            result.1 = second_cut.0;
+            result.2 = Some(second_cut.1);
+        };
+
+        result
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+struct PowerCuboid {
+    volume: Cuboid,
+    power_state: bool,
+}
+
+impl PowerCuboid {
+    fn new(
+        power_state: bool,
+        x_range: (i32, i32),
+        y_range: (i32, i32),
+        z_range: (i32, i32),
+    ) -> Self {
+        let bottom_left: Point3<i32> = Point3::new(x_range.0, y_range.0, z_range.0);
+        let top_right: Point3<i32> = Point3::new(x_range.1, y_range.1, z_range.1);
+
+        Self {
+            volume: Cuboid {
+                top_right,
+                bottom_left,
+            },
+            power_state,
+        }
+    }
+
+    pub fn intersect(&self, other: &Self) -> Option<Vec<Self>> {
+        let cutting_planes = self.volume.intersection_planes(&other.volume)?;
+
+        // Compute all the resulting cuts from removing the intersection from us and the other cube
+        let (our_intersection, our_cuts) = self.volume.extract_intersection(&cutting_planes);
+        let (other_intersection, other_cuts) = other.volume.extract_intersection(&cutting_planes);
+
+        // The intersection from both extractions
+        assert!(our_intersection == other_intersection);
+
+        let mut new_power_cubes = vec![PowerCuboid {
+            volume: other_intersection,
+            power_state: other.power_state,
+        }];
+
+        new_power_cubes.extend(our_cuts.into_iter().map(|volume| Self {
+            volume,
+            power_state: self.power_state,
+        }));
+        new_power_cubes.extend(other_cuts.into_iter().map(|volume| Self {
+            volume,
+            power_state: other.power_state,
+        }));
+
+        Some(new_power_cubes)
+    }
 }
 
 #[cfg(test)]
@@ -272,23 +279,31 @@ mod tests {
 
         let ref_cubes = vec![
             PowerCuboid {
-                top_right: Point3::new(12, 12, 12),
-                bottom_left: Point3::new(10, 10, 10),
+                volume: Cuboid {
+                    top_right: Point3::new(12, 12, 12),
+                    bottom_left: Point3::new(10, 10, 10),
+                },
                 power_state: true,
             },
             PowerCuboid {
-                top_right: Point3::new(13, 13, 13),
-                bottom_left: Point3::new(11, 11, 11),
+                volume: Cuboid {
+                    top_right: Point3::new(13, 13, 13),
+                    bottom_left: Point3::new(11, 11, 11),
+                },
                 power_state: true,
             },
             PowerCuboid {
-                top_right: Point3::new(11, 11, 11),
-                bottom_left: Point3::new(9, 9, 9),
+                volume: Cuboid {
+                    top_right: Point3::new(11, 11, 11),
+                    bottom_left: Point3::new(9, 9, 9),
+                },
                 power_state: false,
             },
             PowerCuboid {
-                top_right: Point3::new(10, 10, 10),
-                bottom_left: Point3::new(10, 10, 10),
+                volume: Cuboid {
+                    top_right: Point3::new(10, 10, 10),
+                    bottom_left: Point3::new(10, 10, 10),
+                },
                 power_state: true,
             },
         ];
@@ -313,38 +328,52 @@ mod tests {
 
         let ref_intersection = vec![
             PowerCuboid {
-                top_right: Point3::new(12, 12, 12),
-                bottom_left: Point3::new(11, 11, 11),
+                volume: Cuboid {
+                    top_right: Point3::new(12, 12, 12),
+                    bottom_left: Point3::new(11, 11, 11),
+                },
                 power_state: true,
             },
             PowerCuboid {
-                top_right: Point3::new(10, 12, 12),
-                bottom_left: Point3::new(10, 10, 10),
+                volume: Cuboid {
+                    top_right: Point3::new(10, 12, 12),
+                    bottom_left: Point3::new(10, 10, 10),
+                },
                 power_state: true,
             },
             PowerCuboid {
-                top_right: Point3::new(12, 10, 12),
-                bottom_left: Point3::new(11, 10, 10),
+                volume: Cuboid {
+                    top_right: Point3::new(12, 10, 12),
+                    bottom_left: Point3::new(11, 10, 10),
+                },
                 power_state: true,
             },
             PowerCuboid {
-                top_right: Point3::new(12, 12, 10),
-                bottom_left: Point3::new(11, 11, 10),
+                volume: Cuboid {
+                    top_right: Point3::new(12, 12, 10),
+                    bottom_left: Point3::new(11, 11, 10),
+                },
                 power_state: true,
             },
             PowerCuboid {
-                top_right: Point3::new(13, 13, 13),
-                bottom_left: Point3::new(13, 11, 11),
+                volume: Cuboid {
+                    top_right: Point3::new(13, 13, 13),
+                    bottom_left: Point3::new(13, 11, 11),
+                },
                 power_state: true,
             },
             PowerCuboid {
-                top_right: Point3::new(12, 13, 13),
-                bottom_left: Point3::new(11, 13, 11),
+                volume: Cuboid {
+                    top_right: Point3::new(12, 13, 13),
+                    bottom_left: Point3::new(11, 13, 11),
+                },
                 power_state: true,
             },
             PowerCuboid {
-                top_right: Point3::new(12, 12, 13),
-                bottom_left: Point3::new(11, 11, 13),
+                volume: Cuboid {
+                    top_right: Point3::new(12, 12, 13),
+                    bottom_left: Point3::new(11, 11, 13),
+                },
                 power_state: true,
             },
         ];
@@ -365,8 +394,10 @@ mod tests {
             .collect();
 
         let far_cube = PowerCuboid {
-            top_right: Point3::new(16, 16, 16),
-            bottom_left: Point3::new(15, 15, 15),
+            volume: Cuboid {
+                top_right: Point3::new(16, 16, 16),
+                bottom_left: Point3::new(15, 15, 15),
+            },
             power_state: true,
         };
 
@@ -390,42 +421,101 @@ mod tests {
 
         let ref_intersection = vec![
             PowerCuboid {
-                top_right: Point3::new(12, 12, 12),
-                bottom_left: Point3::new(11, 11, 11),
+                volume: Cuboid {
+                    top_right: Point3::new(12, 12, 12),
+                    bottom_left: Point3::new(11, 11, 11),
+                },
                 power_state: false,
             },
             PowerCuboid {
-                top_right: Point3::new(10, 12, 12),
-                bottom_left: Point3::new(10, 10, 10),
+                volume: Cuboid {
+                    top_right: Point3::new(10, 12, 12),
+                    bottom_left: Point3::new(10, 10, 10),
+                },
                 power_state: true,
             },
             PowerCuboid {
-                top_right: Point3::new(12, 10, 12),
-                bottom_left: Point3::new(11, 10, 10),
+                volume: Cuboid {
+                    top_right: Point3::new(12, 10, 12),
+                    bottom_left: Point3::new(11, 10, 10),
+                },
                 power_state: true,
             },
             PowerCuboid {
-                top_right: Point3::new(12, 12, 10),
-                bottom_left: Point3::new(11, 11, 10),
+                volume: Cuboid {
+                    top_right: Point3::new(12, 12, 10),
+                    bottom_left: Point3::new(11, 11, 10),
+                },
                 power_state: true,
             },
             PowerCuboid {
-                top_right: Point3::new(13, 13, 13),
-                bottom_left: Point3::new(13, 11, 11),
+                volume: Cuboid {
+                    top_right: Point3::new(13, 13, 13),
+                    bottom_left: Point3::new(13, 11, 11),
+                },
                 power_state: false,
             },
             PowerCuboid {
-                top_right: Point3::new(12, 13, 13),
-                bottom_left: Point3::new(11, 13, 11),
+                volume: Cuboid {
+                    top_right: Point3::new(12, 13, 13),
+                    bottom_left: Point3::new(11, 13, 11),
+                },
                 power_state: false,
             },
             PowerCuboid {
-                top_right: Point3::new(12, 12, 13),
-                bottom_left: Point3::new(11, 11, 13),
+                volume: Cuboid {
+                    top_right: Point3::new(12, 12, 13),
+                    bottom_left: Point3::new(11, 11, 13),
+                },
                 power_state: false,
             },
         ];
 
         assert_eq!(intersection, ref_intersection);
+    }
+
+    #[test]
+    fn full_centre_power_cycle() {
+        let input_string = "on x=-20..26,y=-36..17,z=-47..7
+        on x=-20..33,y=-21..23,z=-26..28
+        on x=-22..28,y=-29..23,z=-38..16
+        on x=-46..7,y=-6..46,z=-50..-1
+        on x=-49..1,y=-3..46,z=-24..28
+        on x=2..47,y=-22..22,z=-23..27
+        on x=-27..23,y=-28..26,z=-21..29
+        on x=-39..5,y=-6..47,z=-3..44
+        on x=-30..21,y=-8..43,z=-13..34
+        on x=-22..26,y=-27..20,z=-29..19
+        off x=-48..-32,y=26..41,z=-47..-37
+        on x=-12..35,y=6..50,z=-50..-2
+        off x=-48..-32,y=-32..-16,z=-15..-5
+        on x=-18..26,y=-33..15,z=-7..46
+        off x=-40..-22,y=-38..-28,z=23..41
+        on x=-16..35,y=-41..10,z=-47..6
+        off x=-32..-23,y=11..30,z=-14..3
+        on x=-49..-5,y=-3..45,z=-29..18
+        off x=18..30,y=-20..-8,z=-3..13
+        on x=-41..9,y=-7..43,z=-33..15
+        on x=-54112..-39298,y=-85059..-49293,z=-27449..7877
+        on x=967..23432,y=45373..81175,z=27513..53682";
+
+        let target_volume = Cuboid {
+            bottom_left: Point3::new(-50, -50, -50),
+            top_right: Point3::new(50, 50, 50),
+        };
+
+        let cubes: Vec<PowerCuboid> = input_string
+            .lines()
+            .filter_map(|line| {
+                let (_, cube) = power_cube(line).unwrap();
+                if cube.volume.inside_volume(&target_volume) {
+                    Some(cube)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        assert_eq!(cubes.len(), 20);
     }
 }
