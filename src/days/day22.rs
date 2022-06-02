@@ -9,11 +9,7 @@ use nom::multi::separated_list1;
 use nom::sequence::{delimited, pair, preceded, separated_pair};
 use nom::IResult;
 
-enum CutPlane {
-    X(i32),
-    Y(i32),
-    Z(i32),
-}
+use std::convert::TryFrom;
 
 fn power(input: &str) -> IResult<&str, bool> {
     let (rem_str, power) = alt((tag("on"), tag("off")))(input)?;
@@ -45,9 +41,9 @@ pub fn power_cube(input: &str) -> IResult<&str, PowerCuboid> {
 
     let (rem_str, axes) = separated_list1(tag(","), axis_range)(rem_str)?;
 
-    let x_range = (axes[0].0.min(axes[0].1), axes[0].0.max(axes[0].1));
-    let y_range = (axes[1].0.min(axes[1].1), axes[1].0.max(axes[1].1));
-    let z_range = (axes[2].0.min(axes[2].1), axes[2].0.max(axes[2].1));
+    let x_range = (axes[0].0.min(axes[0].1), axes[0].0.max(axes[0].1) + 1);
+    let y_range = (axes[1].0.min(axes[1].1), axes[1].0.max(axes[1].1) + 1);
+    let z_range = (axes[2].0.min(axes[2].1), axes[2].0.max(axes[2].1) + 1);
 
     Ok((
         rem_str,
@@ -73,10 +69,25 @@ impl Cuboid {
         self.bottom_left >= volume.bottom_left && self.top_right <= volume.top_right
     }
 
-    pub fn intersection_planes(&self, other: &Self) -> Option<Self> {
-        if self.bottom_left > other.top_right || self.top_right < other.bottom_left {
+    pub fn volume(&self) -> u64 {
+        let sizes = (self.top_right - self.bottom_left).abs();
+
+        sizes
+            .into_iter()
+            .map(|length| u64::try_from(*length).unwrap())
+            .product()
+    }
+
+    pub fn intersect(&self, other: &Self) -> Option<Self> {
+        if self.bottom_left.x > other.top_right.x || self.top_right.x < other.bottom_left.x {
             return None;
-        };
+        }
+        if self.bottom_left.y > other.top_right.y || self.top_right.y < other.bottom_left.y {
+            return None;
+        }
+        if self.bottom_left.z > other.top_right.z || self.top_right.z < other.bottom_left.z {
+            return None;
+        }
 
         let (min_x, max_x) = (
             self.bottom_left.x.max(other.bottom_left.x),
@@ -99,15 +110,8 @@ impl Cuboid {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum IntersectionType {
-    Equal(),
-    Standard(Vec<PowerCuboid>),
-    Superset(Vec<PowerCuboid>),
-    Subset(Vec<PowerCuboid>),
-}
-#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct PowerCuboid {
-    volume: Cuboid,
+    cuboid: Cuboid,
     power_state: bool,
 }
 
@@ -122,7 +126,7 @@ impl PowerCuboid {
         let top_right: Point3<i32> = Point3::new(x_range.1, y_range.1, z_range.1);
 
         Self {
-            volume: Cuboid {
+            cuboid: Cuboid {
                 top_right,
                 bottom_left,
             },
@@ -131,16 +135,31 @@ impl PowerCuboid {
     }
 
     pub fn inside_volume(&self, volume: &Cuboid) -> bool {
-        self.volume.inside_volume(volume)
+        self.cuboid.inside_volume(volume)
     }
 
     pub fn intersect(&self, other: &Self) -> Option<PowerCuboid> {
-        let intersection_volume = self.volume.intersection_planes(&other.volume)?;
+        let intersection_cuboid = self.cuboid.intersect(&other.cuboid)?;
 
         Some(PowerCuboid {
-            volume: intersection_volume,
+            cuboid: intersection_cuboid,
             power_state: other.power_state,
         })
+    }
+
+    fn compute_on_volume(&self, other_cuboids: &[PowerCuboid]) -> u64 {
+        let conflicts = other_cuboids
+            .iter()
+            .filter_map(|c| self.intersect(c))
+            .collect_vec();
+
+        let confict_volume: u64 = conflicts
+            .iter()
+            .enumerate()
+            .map(|(idx, cube)| cube.compute_on_volume(&conflicts[idx + 1..]))
+            .sum();
+
+        self.cuboid.volume().checked_sub(confict_volume).unwrap()
     }
 }
 
@@ -165,29 +184,29 @@ mod tests {
 
         let ref_cubes = vec![
             PowerCuboid {
-                volume: Cuboid {
-                    top_right: Point3::new(12, 12, 12),
+                cuboid: Cuboid {
+                    top_right: Point3::new(13, 13, 13),
                     bottom_left: Point3::new(10, 10, 10),
                 },
                 power_state: true,
             },
             PowerCuboid {
-                volume: Cuboid {
-                    top_right: Point3::new(13, 13, 13),
+                cuboid: Cuboid {
+                    top_right: Point3::new(14, 14, 14),
                     bottom_left: Point3::new(11, 11, 11),
                 },
                 power_state: true,
             },
             PowerCuboid {
-                volume: Cuboid {
-                    top_right: Point3::new(11, 11, 11),
+                cuboid: Cuboid {
+                    top_right: Point3::new(12, 12, 12),
                     bottom_left: Point3::new(9, 9, 9),
                 },
                 power_state: false,
             },
             PowerCuboid {
-                volume: Cuboid {
-                    top_right: Point3::new(10, 10, 10),
+                cuboid: Cuboid {
+                    top_right: Point3::new(11, 11, 11),
                     bottom_left: Point3::new(10, 10, 10),
                 },
                 power_state: true,
@@ -195,6 +214,20 @@ mod tests {
         ];
 
         assert_eq!(cubes, ref_cubes);
+    }
+
+    #[test]
+    fn negative_volume() {
+        let test_cuboid = Cuboid::new(Point3::new(-12, -12, -12), Point3::new(-9, -9, -9));
+
+        assert_eq!(test_cuboid.volume(), 27);
+    }
+
+    #[test]
+    fn crossover_volume() {
+        let test_cuboid = Cuboid::new(Point3::new(-3, -3, -3), Point3::new(2, 2, 2));
+
+        assert_eq!(test_cuboid.volume(), 125);
     }
 
     #[test]
@@ -213,14 +246,22 @@ mod tests {
         let intersection = cubes[0].intersect(&cubes[1]).unwrap();
 
         let ref_intersection = PowerCuboid {
-            volume: Cuboid {
-                top_right: Point3::new(12, 12, 12),
+            cuboid: Cuboid {
+                top_right: Point3::new(13, 13, 13),
                 bottom_left: Point3::new(11, 11, 11),
             },
             power_state: true,
         };
 
+        let final_volume: u64 = cubes
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.power_state)
+            .map(|(idx, c)| c.compute_on_volume(&cubes[idx + 1..]))
+            .sum();
+
         assert_eq!(intersection, ref_intersection);
+        assert_eq!(final_volume, 46);
     }
 
     #[test]
@@ -236,7 +277,7 @@ mod tests {
             .collect();
 
         let far_cube = PowerCuboid {
-            volume: Cuboid {
+            cuboid: Cuboid {
                 top_right: Point3::new(16, 16, 16),
                 bottom_left: Point3::new(15, 15, 15),
             },
@@ -261,6 +302,7 @@ mod tests {
         let intersection = cubes[0].intersect(&cubes[0]).unwrap();
 
         assert_eq!(intersection, cubes[0]);
+        assert_eq!(intersection.cuboid.volume(), 27);
     }
 
     #[test]
@@ -279,17 +321,73 @@ mod tests {
         let intersection = cubes[0].intersect(&cubes[1]).unwrap();
 
         let ref_intersection = PowerCuboid {
-            volume: Cuboid {
-                top_right: Point3::new(12, 12, 12),
+            cuboid: Cuboid {
+                top_right: Point3::new(13, 13, 13),
                 bottom_left: Point3::new(11, 11, 11),
             },
             power_state: false,
         };
 
+        let final_volume: u64 = cubes
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.power_state)
+            .map(|(idx, c)| c.compute_on_volume(&cubes[idx + 1..]))
+            .sum();
+
         assert_eq!(intersection, ref_intersection);
+        assert_eq!(final_volume, 19);
     }
 
-    /*
+    #[test]
+    fn tri_intersection() {
+        let input_string = "on x=10..12,y=10..12,z=10..12
+        off x=11..13,y=11..13,z=11..13
+        on x=12..14,y=10..12,z=10..12";
+
+        let cubes: Vec<PowerCuboid> = input_string
+            .lines()
+            .map(|line| {
+                let (_, cube) = power_cube(line).unwrap();
+                cube
+            })
+            .collect();
+
+        let final_volume: u64 = cubes
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.power_state)
+            .map(|(idx, c)| c.compute_on_volume(&cubes[idx + 1..]))
+            .sum();
+
+        assert_eq!(final_volume, 41);
+    }
+
+    #[test]
+    fn longer_test() {
+        let input_string = "on x=10..12,y=10..12,z=10..12
+        on x=11..13,y=11..13,z=11..13
+        off x=9..11,y=9..11,z=9..11
+        on x=10..10,y=10..10,z=10..10";
+
+        let cubes: Vec<PowerCuboid> = input_string
+            .lines()
+            .map(|line| {
+                let (_, cube) = power_cube(line).unwrap();
+                cube
+            })
+            .collect();
+
+        let final_volume: u64 = cubes
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.power_state)
+            .map(|(idx, c)| c.compute_on_volume(&cubes[idx + 1..]))
+            .sum();
+
+        assert_eq!(final_volume, 39);
+    }
+
     #[test]
     fn full_centre_power_cycle() {
         let input_string = "on x=-20..26,y=-36..17,z=-47..7
@@ -315,9 +413,9 @@ mod tests {
         on x=-54112..-39298,y=-85059..-49293,z=-27449..7877
         on x=967..23432,y=45373..81175,z=27513..53682";
 
-        let target_volume = Cuboid::new(Point3::new(-50, -50, -50), Point3::new(50, 50, 50));
+        let target_volume = Cuboid::new(Point3::new(-50, -50, -50), Point3::new(51, 51, 51));
 
-        let cubes: Vec<PowerCuboid> = input_string
+        let cubes = input_string
             .lines()
             .filter_map(|line| {
                 let (_, cube) = power_cube(line).unwrap();
@@ -327,24 +425,17 @@ mod tests {
                     None
                 }
             })
-            .collect();
+            .collect_vec();
 
-        assert_eq!(cubes.len(), 21);
+        assert_eq!(cubes.len(), 20);
 
-        let mut final_power_cuboids = vec![cubes[0].clone()];
+        let final_volume: u64 = cubes
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.power_state)
+            .map(|(idx, c)| c.compute_on_volume(&cubes[idx + 1..]))
+            .sum();
 
-        for next_cuboid in cubes.into_iter().skip(1) {
-            let mut cuboid_exploration = final_power_cuboids;
-            let mut new_power_cuboids: Vec<PowerCuboid> = Vec::new();
-
-            while let Some(other_cuboid) = cuboid_exploration.pop() {
-                if let Some(cuts) = other_cuboid.intersect(&next_cuboid) {
-                } else {
-                    new_power_cuboids.push(other_cuboid);
-                }
-            }
-
-            final_power_cuboids = new_power_cuboids;
-        }
-    }*/
+        assert_eq!(final_volume, 590784);
+    }
 }
