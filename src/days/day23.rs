@@ -1,12 +1,6 @@
-use nom::branch::alt;
-use nom::bytes::complete::tag;
-use nom::character::complete::{digit1, space0};
-use nom::combinator::opt;
-use nom::multi::separated_list1;
-use nom::sequence::{delimited, pair, preceded, separated_pair};
-use nom::IResult;
+use std::convert::TryFrom;
 
-use hashbrown::HashMap;
+use itertools::Itertools;
 
 const TARGET_LOCATIONS: u8 = 7;
 // Forward costs from one location to another (to be fair it could just be one long vector)
@@ -36,6 +30,7 @@ fn axis_range(input: &str) -> IResult<&str, (i32, i32)> {
 }
 */
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AmphiType {
     Amber(),
     Bronze(),
@@ -43,13 +38,113 @@ enum AmphiType {
     Desert(),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Amphipod {
     node: u8,
     race: AmphiType,
+    back_in_slot: bool,
+}
+
+fn parse_input(input: &str) -> [Amphipod; 8] {
+    let mut result: [Amphipod; 8] = [Amphipod {
+        node: 255,
+        race: AmphiType::Amber(),
+        back_in_slot: false,
+    }; 8];
+    for (row, line) in input.lines().skip(2).take(2).map(|l| l.trim()).enumerate() {
+        let cleaned_string = line.trim_matches('#');
+
+        println!("Cleaned string: {}", cleaned_string);
+
+        for (col, char) in cleaned_string.chars().step_by(2).take(4).enumerate() {
+            let race = match char {
+                'A' => AmphiType::Amber(),
+                'B' => AmphiType::Bronze(),
+                'C' => AmphiType::Copper(),
+                'D' => AmphiType::Desert(),
+                _ => panic!("We got a strange character between the amphipods!"),
+            };
+            let flat_id = row * 4 + col;
+            result[flat_id] = Amphipod {
+                node: u8::try_from(flat_id).unwrap() + TARGET_LOCATIONS,
+                race,
+                back_in_slot: false,
+            };
+        }
+    }
+
+    for (id, amphi) in result.iter_mut().skip(4).take(4).enumerate() {
+        match amphi.race {
+            AmphiType::Amber() => {
+                if amphi.node == TARGET_LOCATIONS + 4 {
+                    amphi.back_in_slot = true
+                }
+            }
+            AmphiType::Bronze() => {
+                if amphi.node == TARGET_LOCATIONS + 5 {
+                    amphi.back_in_slot = true
+                }
+            }
+            AmphiType::Copper() => {
+                if amphi.node == TARGET_LOCATIONS + 6 {
+                    amphi.back_in_slot = true
+                }
+            }
+            AmphiType::Desert() => {
+                if amphi.node == TARGET_LOCATIONS + 7 {
+                    amphi.back_in_slot = true
+                }
+            }
+        }
+    }
+
+    for id in 0usize..4 {
+        if result[id + 4].back_in_slot {
+            let amphi_id = result[id].node;
+            match result[id].race {
+                AmphiType::Amber() => {
+                    if amphi_id == TARGET_LOCATIONS {
+                        result[id].back_in_slot = true
+                    }
+                }
+                AmphiType::Bronze() => {
+                    if amphi_id == TARGET_LOCATIONS + 1 {
+                        result[id].back_in_slot = true
+                    }
+                }
+                AmphiType::Copper() => {
+                    if amphi_id == TARGET_LOCATIONS + 2 {
+                        result[id].back_in_slot = true
+                    }
+                }
+                AmphiType::Desert() => {
+                    if amphi_id == TARGET_LOCATIONS + 3 {
+                        result[id].back_in_slot = true
+                    }
+                }
+            }
+        }
+    }
+
+    result
+}
+
+fn find_cost(amphis: [Amphipod; 8]) -> u32 {
+    let mut cost: u32 = 0;
+
+    let occupied_hallway_slots = amphis
+        .iter()
+        .filter(|amphi| amphi.node < 7)
+        .map(|amphi| amphi.node)
+        .collect_vec();
+
+    cost
 }
 
 #[cfg(test)]
 mod tests {
+
+    use hashbrown::HashMap;
     use itertools::Itertools;
 
     use super::*;
@@ -122,7 +217,6 @@ mod tests {
         costs
     }
 
-    #[test]
     fn network_gen() {
         let mut total_forward_map = explore_network(&forward_network_A, 7);
         total_forward_map.extend(explore_network(&forward_network_B, 8));
@@ -136,7 +230,61 @@ mod tests {
 
         println!("Length: {}", total_forward_network.len());
         println!("{:?}", total_forward_network);
+    }
 
-        panic!("Oh no!");
+    #[test]
+    fn parse() {
+        let input_str = "#############
+        #...........#
+        ###B#C#B#D###
+          #A#D#C#A#
+          #########";
+
+        let amphis = parse_input(input_str);
+
+        let ref_amphis = [
+            Amphipod {
+                node: 7,
+                race: AmphiType::Bronze(),
+                back_in_slot: false,
+            },
+            Amphipod {
+                node: 8,
+                race: AmphiType::Copper(),
+                back_in_slot: false,
+            },
+            Amphipod {
+                node: 9,
+                race: AmphiType::Bronze(),
+                back_in_slot: false,
+            },
+            Amphipod {
+                node: 10,
+                race: AmphiType::Desert(),
+                back_in_slot: false,
+            },
+            Amphipod {
+                node: 11,
+                race: AmphiType::Amber(),
+                back_in_slot: true,
+            },
+            Amphipod {
+                node: 12,
+                race: AmphiType::Desert(),
+                back_in_slot: false,
+            },
+            Amphipod {
+                node: 13,
+                race: AmphiType::Copper(),
+                back_in_slot: true,
+            },
+            Amphipod {
+                node: 14,
+                race: AmphiType::Amber(),
+                back_in_slot: false,
+            },
+        ];
+
+        assert_eq!(amphis, ref_amphis);
     }
 }
