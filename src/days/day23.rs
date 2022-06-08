@@ -1,6 +1,10 @@
-use std::{convert::TryFrom, iter::FromIterator, sync::Arc};
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
+use std::convert::TryFrom;
+use std::iter::FromIterator;
 
 use itertools::Itertools;
+use nom::multi::count;
 
 const TARGET_LOCATIONS: usize = 7;
 // Forward costs from one location to another (to be fair it could just be one long vector)
@@ -8,27 +12,6 @@ const FORWARD_COSTS: [u32; 56] = [
     3, 2, 2, 4, 6, 8, 9, 5, 4, 2, 2, 4, 6, 7, 7, 6, 4, 2, 2, 4, 5, 9, 8, 6, 4, 2, 2, 3, 4, 3, 3, 5,
     7, 9, 10, 6, 5, 3, 3, 5, 7, 8, 8, 7, 5, 3, 3, 5, 6, 10, 9, 7, 5, 3, 3, 4,
 ];
-
-/*
-fn axis_range(input: &str) -> IResult<&str, (i32, i32)> {
-    let (rem_str, (first_raw, second_raw)) = preceded(
-        alt((tag("x="), tag("y="), tag("z="))),
-        separated_pair(
-            pair(opt(tag("-")), digit1),
-            tag(".."),
-            pair(opt(tag("-")), digit1),
-        ),
-    )(input)?;
-
-    let first_value = format!("{}{}", first_raw.0.unwrap_or(""), first_raw.1);
-    let second_value = format!("{}{}", second_raw.0.unwrap_or(""), second_raw.1);
-
-    Ok((
-        rem_str,
-        (first_value.parse().unwrap(), second_value.parse().unwrap()),
-    ))
-}
-*/
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
@@ -44,6 +27,26 @@ struct Amphipod {
     node: usize,
     race: AmphiType,
     back_in_slot: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DenStatus {
+    amphipods: [Amphipod; 8],
+    history: Vec<([Amphipod; 8], u32)>,
+    cost: u32,
+}
+
+impl Ord for DenStatus {
+    fn cmp(&self, other: &Self) -> Ordering {
+        // Since we want a minimum cost queue we'll have to flip the check
+        other.cost.cmp(&self.cost)
+    }
+}
+
+impl PartialOrd for DenStatus {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 fn parse_input(input: &str) -> [Amphipod; 8] {
@@ -165,7 +168,11 @@ fn print_state(amphis: &[Amphipod; 8]) {
             AmphiType::Copper => "C",
             AmphiType::Desert => "D",
         };
-        print!(" {} [{}];", amphi_char, amphi.node);
+        print!(" {} [{}]", amphi_char, amphi.node);
+        if amphi.back_in_slot {
+            print!("*");
+        }
+        print!(";");
         if amphi.node < TARGET_LOCATIONS {
             let string_loc = if amphi.node < 2 {
                 amphi.node + 1
@@ -191,6 +198,224 @@ fn print_state(amphis: &[Amphipod; 8]) {
     println!("{}", second_nodes);
     println!("  #########");
     println!();
+}
+
+fn get_hall_move_status(moving_amphipod_id: usize, status: &DenStatus) -> Option<DenStatus> {
+    let moving_amphipod = status.amphipods.get(moving_amphipod_id).unwrap();
+    let (hallway_target, mut target_node) = match moving_amphipod.race {
+        AmphiType::Amber => (1, TARGET_LOCATIONS + 4),
+        AmphiType::Bronze => (2, TARGET_LOCATIONS + 5),
+        AmphiType::Copper => (3, TARGET_LOCATIONS + 6),
+        AmphiType::Desert => (4, TARGET_LOCATIONS + 7),
+    };
+    if status
+        .amphipods
+        .iter()
+        .filter(|amp| amp.race == moving_amphipod.race && amp.node == target_node)
+        .count()
+        > 0
+    {
+        target_node -= 4;
+    }
+
+    let target_node_available = !status.amphipods.iter().any(|amp| amp.node == target_node);
+    let path_to_target_clear = !status.amphipods.iter().any(|amp| {
+        if amp.node > TARGET_LOCATIONS || amp.node == moving_amphipod.node {
+            false
+        } else if moving_amphipod.node > hallway_target {
+            amp.node > hallway_target && amp.node < moving_amphipod.node
+        } else {
+            amp.node <= hallway_target && amp.node > moving_amphipod.node
+        }
+    });
+
+    /*     if status.history.len() == 3
+        && status
+            .amphipods
+            .iter()
+            .any(|amp| amp.race == AmphiType::Copper && amp.node == 3)
+        && moving_amphipod.race == AmphiType::Copper
+    {
+        println!("We should now move C from 3 to 9");
+        println!("Node:");
+        println!("{:?}", moving_amphipod);
+        println!("Target node: {}", target_node);
+        println!(
+            "Is available? {}; Is the path clear? {}",
+            target_node_available, path_to_target_clear
+        );
+        print_state(&status.amphipods);
+    } */
+
+    if target_node_available && path_to_target_clear {
+        let mut new_state = status.amphipods;
+        new_state[moving_amphipod_id].node = target_node;
+        new_state[moving_amphipod_id].back_in_slot = true;
+        let new_cost =
+            get_backwards_cost(moving_amphipod.node, target_node) * moving_amphipod.race as u32;
+        let mut new_history = status.history.clone();
+        new_history.push((new_state, status.cost + new_cost));
+        Some(DenStatus {
+            amphipods: new_state,
+            history: new_history,
+            cost: status.cost + new_cost,
+        })
+    } else {
+        None
+    }
+}
+
+fn get_room_move_status(
+    moving_amphipod_id: usize,
+    target_hallway_cell: usize,
+    status: &DenStatus,
+) -> Option<DenStatus> {
+    let moving_amphipod = status.amphipods.get(moving_amphipod_id).unwrap();
+    let start_node = moving_amphipod.node;
+
+    if start_node > TARGET_LOCATIONS + 4
+        && status
+            .amphipods
+            .iter()
+            .any(|amp| amp.node == start_node - 4)
+    {
+        return None;
+    };
+
+    let hallway_target: usize = (0..4)
+        .filter_map(|node| {
+            if start_node == TARGET_LOCATIONS + node || start_node == TARGET_LOCATIONS + 4 + node {
+                Some(node + 1)
+            } else {
+                None
+            }
+        })
+        .next()
+        .unwrap();
+
+    let occupied_hallway_nodes = status
+        .amphipods
+        .iter()
+        .filter_map(|amp| if amp.node < 7 { Some(amp.node) } else { None })
+        .collect_vec();
+
+    if occupied_hallway_nodes.is_empty() {
+        let mut new_state = status.amphipods;
+        new_state[moving_amphipod_id].node = target_hallway_cell;
+        let new_cost = get_forward_cost(moving_amphipod.node, target_hallway_cell)
+            * moving_amphipod.race as u32;
+        let mut new_history = status.history.clone();
+        new_history.push((new_state, status.cost + new_cost));
+        /* if status.history.len() == 2
+            && status
+                .amphipods
+                .iter()
+                .any(|amp| amp.race == AmphiType::Bronze && amp.node == 2)
+            && moving_amphipod.race == AmphiType::Copper
+        {
+            println!("We should now move C from 8 to 2");
+            print_state(&new_state);
+        } */
+        Some(DenStatus {
+            amphipods: new_state,
+            history: new_history,
+            cost: status.cost + new_cost,
+        })
+    } else {
+        let hallway_clear = !occupied_hallway_nodes.iter().any(|occ| {
+            if target_hallway_cell == *occ {
+                true
+            } else if target_hallway_cell < hallway_target {
+                *occ <= hallway_target && *occ > target_hallway_cell
+            } else {
+                *occ > hallway_target && *occ <= target_hallway_cell
+            }
+        });
+        if hallway_clear {
+            let mut new_state = status.amphipods;
+            new_state[moving_amphipod_id].node = target_hallway_cell;
+            let new_cost = get_forward_cost(moving_amphipod.node, target_hallway_cell)
+                * moving_amphipod.race as u32;
+            let mut new_history = status.history.clone();
+            new_history.push((new_state, status.cost + new_cost));
+            /* if status.history.len() == 2
+                && status
+                    .amphipods
+                    .iter()
+                    .any(|amp| amp.race == AmphiType::Bronze && amp.node == 2)
+                && moving_amphipod.race == AmphiType::Copper
+            {
+                println!("We should now move C from 8 to 2");
+                print_state(&new_state);
+            } */
+            Some(DenStatus {
+                amphipods: new_state,
+                history: new_history,
+                cost: status.cost + new_cost,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+fn compute_cost_heap(amphis: [Amphipod; 8]) -> u32 {
+    let mut dijkstra_heap: BinaryHeap<DenStatus> = BinaryHeap::new();
+    dijkstra_heap.push(DenStatus {
+        amphipods: amphis,
+        history: vec![(amphis, 0)],
+        cost: 0,
+    });
+
+    while let Some(current_status) = dijkstra_heap.pop() {
+        let arrived_amphis = current_status
+            .amphipods
+            .iter()
+            .enumerate()
+            .filter_map(|(id, amp)| if amp.back_in_slot { Some(id) } else { None })
+            .collect_vec();
+
+        if arrived_amphis.len() == amphis.len() {
+            return current_status.cost;
+        }
+
+        for (amphi_id, amphi) in current_status
+            .amphipods
+            .iter()
+            .enumerate()
+            .filter(|(id, _)| !arrived_amphis.contains(id))
+        {
+            if amphi.node < TARGET_LOCATIONS {
+                /*
+                if current_status.history.len() == 3
+                    && current_status
+                        .amphipods
+                        .iter()
+                        .any(|amp| amp.race == AmphiType::Bronze && amp.node == 2)
+                    && current_status
+                        .amphipods
+                        .iter()
+                        .any(|amp| amp.race == AmphiType::Copper && amp.node == 3)
+                {
+                    println!("We should be moving this one to its place!");
+                    println!("{:#?}", amphi)
+                };*/
+                if let Some(next_status) = get_hall_move_status(amphi_id, &current_status) {
+                    dijkstra_heap.push(next_status);
+                }
+            } else {
+                for target in 0usize..7 {
+                    if let Some(next_status) =
+                        get_room_move_status(amphi_id, target, &current_status)
+                    {
+                        dijkstra_heap.push(next_status);
+                    }
+                }
+            }
+        }
+    }
+
+    u32::MAX
 }
 
 fn find_cost(
@@ -495,9 +720,9 @@ mod tests {
 
         let amphis = parse_input(input_str);
 
-        let run_cost = find_cost(amphis, 0, None);
+        let run_cost = compute_cost_heap(amphis);
 
-        assert_eq!(run_cost, Some(460));
+        assert_eq!(run_cost, 460);
     }
 
     #[test]
@@ -510,9 +735,9 @@ mod tests {
 
         let amphis = parse_input(input_str);
 
-        let run_cost = find_cost(amphis, 0, None);
+        let run_cost = compute_cost_heap(amphis);
 
-        assert_eq!(run_cost, Some(8470));
+        assert_eq!(run_cost, 8470);
     }
 
     #[test]
@@ -525,8 +750,8 @@ mod tests {
 
         let amphis = parse_input(input_str);
 
-        let run_cost = find_cost(amphis, 0, None);
+        let run_cost = compute_cost_heap(amphis);
 
-        assert_eq!(run_cost, Some(12521));
+        assert_eq!(run_cost, 12521);
     }
 }
