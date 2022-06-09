@@ -202,7 +202,7 @@ fn get_backwards_cost(start_node: usize, target_node: usize) -> u32 {
     FORWARD_COSTS[flat_id]
 }
 
-fn print_state(amphis: &[Amphipod; 16]) {
+fn _print_state(amphis: &[Amphipod; 16]) {
     let mut hallway: String = String::from("#...........#");
     let mut first_nodes: String = String::from("###.#.#.#.###");
     let mut second_nodes: String = String::from("  #.#.#.#.#");
@@ -447,97 +447,7 @@ pub fn part2(input: &str) {
 
 #[cfg(test)]
 mod tests {
-
-    use hashbrown::HashMap;
-    use itertools::Itertools;
-
     use super::*;
-
-    const FORWARD_NETWORK_A: [(u8, u8, u8); 7] = [
-        (1, 0, 1),
-        (7, 1, 2),
-        (7, 2, 2),
-        (2, 3, 2),
-        (3, 4, 2),
-        (4, 5, 2),
-        (5, 6, 1),
-    ];
-
-    const FORWARD_NETWORK_B: [(u8, u8, u8); 7] = [
-        (1, 0, 1),
-        (8, 2, 2),
-        (8, 3, 2),
-        (2, 1, 2),
-        (3, 4, 2),
-        (4, 5, 2),
-        (5, 6, 1),
-    ];
-
-    const FORWARD_NETWORK_C: [(u8, u8, u8); 7] = [
-        (1, 0, 1),
-        (9, 3, 2),
-        (9, 4, 2),
-        (2, 1, 2),
-        (3, 2, 2),
-        (4, 5, 2),
-        (5, 6, 1),
-    ];
-
-    const FORWARD_NETWORK_D: [(u8, u8, u8); 7] = [
-        (1, 0, 1),
-        (10, 4, 2),
-        (10, 5, 2),
-        (2, 1, 2),
-        (3, 2, 2),
-        (4, 3, 2),
-        (5, 6, 1),
-    ];
-
-    fn explore_network(network: &[(u8, u8, u8); 7], start_node: u8) -> HashMap<(u8, u8), u8> {
-        let mut costs: HashMap<(u8, u8), u8> = HashMap::new();
-        let mut exploration: Vec<(u8, u8)> = network
-            .iter()
-            .filter_map(|(start, end, cost)| {
-                if *start == start_node {
-                    Some((*end, *cost))
-                } else {
-                    None
-                }
-            })
-            .collect_vec();
-
-        while let Some((next_node, next_cost)) = exploration.pop() {
-            costs.insert((start_node, next_node), next_cost);
-            costs.insert((start_node + 4, next_node), next_cost + 1);
-            costs.insert((start_node + 8, next_node), next_cost + 2);
-            costs.insert((start_node + 12, next_node), next_cost + 3);
-            exploration.extend(network.iter().filter_map(|(start, end, cost)| {
-                if *start == next_node {
-                    Some((*end, *cost + next_cost))
-                } else {
-                    None
-                }
-            }));
-        }
-
-        costs
-    }
-
-    fn network_gen() {
-        let mut total_forward_map = explore_network(&FORWARD_NETWORK_A, 7);
-        total_forward_map.extend(explore_network(&FORWARD_NETWORK_B, 8));
-        total_forward_map.extend(explore_network(&FORWARD_NETWORK_C, 9));
-        total_forward_map.extend(explore_network(&FORWARD_NETWORK_D, 10));
-
-        let total_forward_network = total_forward_map
-            .into_iter()
-            .sorted_by(|left, right| left.0.cmp(&right.0))
-            .map(|(_, cost)| cost)
-            .collect_vec();
-
-        println!("Length: {}", total_forward_network.len());
-        println!("{:?}", total_forward_network);
-    }
 
     #[test]
     fn parse() {
