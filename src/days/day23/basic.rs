@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
+use std::convert::TryInto;
 
 use hashbrown::HashSet;
 use itertools::Itertools;
@@ -31,6 +32,7 @@ struct Amphipod {
 struct DenStatus {
     amphipods: [Amphipod; 8],
     history: Vec<([Amphipod; 8], u32)>,
+    total_distance: u32,
     cost: u32,
 }
 
@@ -55,7 +57,12 @@ impl DenStatus {
 impl Ord for DenStatus {
     fn cmp(&self, other: &Self) -> Ordering {
         // Since we want a minimum cost queue we'll have to flip the check
-        other.cost.cmp(&self.cost)
+        let cost_cmp = other.cost.cmp(&self.cost);
+        if cost_cmp == Ordering::Equal {
+            other.total_distance.cmp(&self.total_distance)
+        } else {
+            cost_cmp
+        }
     }
 }
 
@@ -63,6 +70,40 @@ impl PartialOrd for DenStatus {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
+}
+
+fn compute_initial_distance(node: usize, race: AmphiType) -> u32 {
+    let target_row: usize = match race {
+        AmphiType::Amber => 0,
+        AmphiType::Bronze => 1,
+        AmphiType::Copper => 2,
+        AmphiType::Desert => 3,
+    };
+    let row = (node - TARGET_LOCATIONS) / 4;
+    let col = (node - TARGET_LOCATIONS) % 4;
+
+    let distance = col + 2 + ((target_row.abs_diff(row) + 1) * 2);
+
+    distance.try_into().unwrap()
+}
+
+fn compute_distance(amphipod: &Amphipod) -> u32 {
+    let distance = if amphipod.back_in_slot {
+        0
+    } else if amphipod.node >= TARGET_LOCATIONS {
+        compute_initial_distance(amphipod.node, amphipod.race)
+    } else {
+        let home_node = match amphipod.race {
+            AmphiType::Amber => TARGET_LOCATIONS + 4,
+            AmphiType::Bronze => TARGET_LOCATIONS + 5,
+            AmphiType::Copper => TARGET_LOCATIONS + 6,
+            AmphiType::Desert => TARGET_LOCATIONS + 7,
+        };
+
+        get_backwards_cost(amphipod.node, home_node)
+    };
+
+    distance * amphipod.race as u32
 }
 
 fn parse_input(input: &str) -> [Amphipod; 8] {
@@ -231,6 +272,7 @@ fn get_hall_move_status(moving_amphipod_id: usize, status: &DenStatus) -> Option
         Some(DenStatus {
             amphipods: new_state,
             history: new_history,
+            total_distance: new_state.iter().map(compute_distance).sum(),
             cost: status.cost + new_cost,
         })
     } else {
@@ -283,6 +325,7 @@ fn get_room_move_status(
         Some(DenStatus {
             amphipods: new_state,
             history: new_history,
+            total_distance: new_state.iter().map(compute_distance).sum(),
             cost: status.cost + new_cost,
         })
     } else {
@@ -306,6 +349,7 @@ fn get_room_move_status(
             Some(DenStatus {
                 amphipods: new_state,
                 history: new_history,
+                total_distance: new_state.iter().map(compute_distance).sum(),
                 cost: status.cost + new_cost,
             })
         } else {
@@ -319,6 +363,7 @@ fn compute_cost_heap(amphis: [Amphipod; 8]) -> u32 {
     dijkstra_heap.push(DenStatus {
         amphipods: amphis,
         history: vec![(amphis, 0)],
+        total_distance: amphis.iter().map(compute_distance).sum(),
         cost: 0,
     });
 
