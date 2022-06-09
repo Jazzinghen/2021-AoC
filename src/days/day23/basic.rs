@@ -1,7 +1,5 @@
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
-use std::convert::TryFrom;
-use std::iter::FromIterator;
 
 use hashbrown::HashSet;
 use itertools::Itertools;
@@ -76,8 +74,6 @@ fn parse_input(input: &str) -> [Amphipod; 8] {
     for (row, line) in input.lines().skip(2).take(2).map(|l| l.trim()).enumerate() {
         let cleaned_string = line.trim_matches('#');
 
-        println!("Cleaned string: {}", cleaned_string);
-
         for (col, char) in cleaned_string.chars().step_by(2).take(4).enumerate() {
             let race = match char {
                 'A' => AmphiType::Amber,
@@ -147,22 +143,6 @@ fn check_arrived(amphis: &[Amphipod; 8]) -> Vec<usize> {
     arrived_amphis
 }
 
-fn get_target_node(amphi: &Amphipod, already_arrived: &[usize]) -> usize {
-    let deep_node: usize = TARGET_LOCATIONS
-        + match amphi.race {
-            AmphiType::Amber => 4,
-            AmphiType::Bronze => 5,
-            AmphiType::Copper => 6,
-            AmphiType::Desert => 7,
-        };
-
-    if already_arrived.contains(&deep_node) {
-        deep_node - 4
-    } else {
-        deep_node
-    }
-}
-
 fn get_forward_cost(start_node: usize, target_node: usize) -> u32 {
     let flat_id = (start_node - TARGET_LOCATIONS) * TARGET_LOCATIONS + target_node;
     FORWARD_COSTS[flat_id]
@@ -173,12 +153,11 @@ fn get_backwards_cost(start_node: usize, target_node: usize) -> u32 {
     FORWARD_COSTS[flat_id]
 }
 
-fn print_state(amphis: &[Amphipod; 8]) {
+fn _print_state(amphis: &[Amphipod; 8]) {
     let mut hallway: String = String::from("#...........#");
     let mut first_nodes: String = String::from("###.#.#.#.###");
     let mut second_nodes: String = String::from("  #.#.#.#.#");
 
-    print!("Placing pods in their spaces...");
     for amphi in amphis {
         let amphi_char = match amphi.race {
             AmphiType::Amber => "A",
@@ -186,11 +165,6 @@ fn print_state(amphis: &[Amphipod; 8]) {
             AmphiType::Copper => "C",
             AmphiType::Desert => "D",
         };
-        print!(" {} [{}]", amphi_char, amphi.node);
-        if amphi.back_in_slot {
-            print!("*");
-        }
-        print!(";");
         if amphi.node < TARGET_LOCATIONS {
             let string_loc = if amphi.node < 2 {
                 amphi.node + 1
@@ -208,7 +182,6 @@ fn print_state(amphis: &[Amphipod; 8]) {
             second_nodes.replace_range(string_loc + 3..string_loc + 4, amphi_char);
         }
     }
-    println!();
 
     println!("#############");
     println!("{}", hallway);
@@ -246,24 +219,6 @@ fn get_hall_move_status(moving_amphipod_id: usize, status: &DenStatus) -> Option
             amp.node <= hallway_target && amp.node > moving_amphipod.node
         }
     });
-
-    /*     if status.history.len() == 3
-        && status
-            .amphipods
-            .iter()
-            .any(|amp| amp.race == AmphiType::Copper && amp.node == 3)
-        && moving_amphipod.race == AmphiType::Copper
-    {
-        println!("We should now move C from 3 to 9");
-        println!("Node:");
-        println!("{:?}", moving_amphipod);
-        println!("Target node: {}", target_node);
-        println!(
-            "Is available? {}; Is the path clear? {}",
-            target_node_available, path_to_target_clear
-        );
-        print_state(&status.amphipods);
-    } */
 
     if target_node_available && path_to_target_clear {
         let mut new_state = status.amphipods;
@@ -324,16 +279,7 @@ fn get_room_move_status(
             * moving_amphipod.race as u32;
         let mut new_history = status.history.clone();
         new_history.push((new_state, status.cost + new_cost));
-        /* if status.history.len() == 2
-            && status
-                .amphipods
-                .iter()
-                .any(|amp| amp.race == AmphiType::Bronze && amp.node == 2)
-            && moving_amphipod.race == AmphiType::Copper
-        {
-            println!("We should now move C from 8 to 2");
-            print_state(&new_state);
-        } */
+
         Some(DenStatus {
             amphipods: new_state,
             history: new_history,
@@ -356,16 +302,7 @@ fn get_room_move_status(
                 * moving_amphipod.race as u32;
             let mut new_history = status.history.clone();
             new_history.push((new_state, status.cost + new_cost));
-            /* if status.history.len() == 2
-                && status
-                    .amphipods
-                    .iter()
-                    .any(|amp| amp.race == AmphiType::Bronze && amp.node == 2)
-                && moving_amphipod.race == AmphiType::Copper
-            {
-                println!("We should now move C from 8 to 2");
-                print_state(&new_state);
-            } */
+
             Some(DenStatus {
                 amphipods: new_state,
                 history: new_history,
@@ -410,20 +347,6 @@ fn compute_cost_heap(amphis: [Amphipod; 8]) -> u32 {
             .filter(|(id, _)| !arrived_amphis.contains(id))
         {
             if amphi.node < TARGET_LOCATIONS {
-                /*
-                if current_status.history.len() == 3
-                    && current_status
-                        .amphipods
-                        .iter()
-                        .any(|amp| amp.race == AmphiType::Bronze && amp.node == 2)
-                    && current_status
-                        .amphipods
-                        .iter()
-                        .any(|amp| amp.race == AmphiType::Copper && amp.node == 3)
-                {
-                    println!("We should be moving this one to its place!");
-                    println!("{:#?}", amphi)
-                };*/
                 if let Some(next_status) = get_hall_move_status(amphi_id, &current_status) {
                     dijkstra_heap.push(next_status);
                 }
@@ -442,148 +365,12 @@ fn compute_cost_heap(amphis: [Amphipod; 8]) -> u32 {
     u32::MAX
 }
 
-fn find_cost(
-    amphis: [Amphipod; 8],
-    current_cost: u32,
-    current_minimum: Option<u32>,
-) -> Option<u32> {
-    let mut cost: Option<u32> = None;
+pub fn part1(input: &str) {
+    let amphis = parse_input(input);
 
-    let occupied_hallway_nodes = amphis
-        .iter()
-        .filter(|amphi| amphi.node < 7)
-        .map(|amphi| amphi.node)
-        .collect_vec();
+    let run_cost = compute_cost_heap(amphis);
 
-    let arrived_amphis = check_arrived(&amphis);
-    if arrived_amphis.len() == amphis.len() {
-        return Some(current_cost);
-    }
-
-    /*
-    println!("New iteration! ==============================================");
-    println!("Current state:");
-    println!();
-    print_state(&amphis);
-    */
-
-    for (amphi_id, amphi) in amphis
-        .iter()
-        .enumerate()
-        .filter(|(id, _)| !arrived_amphis.contains(id))
-    {
-        if amphi.node < TARGET_LOCATIONS {
-            let (hallway_target, mut target_node) = match amphi.race {
-                AmphiType::Amber => (1, TARGET_LOCATIONS + 4),
-                AmphiType::Bronze => (2, TARGET_LOCATIONS + 5),
-                AmphiType::Copper => (3, TARGET_LOCATIONS + 6),
-                AmphiType::Desert => (4, TARGET_LOCATIONS + 7),
-            };
-            if arrived_amphis
-                .iter()
-                .filter(|&id| amphis[*id].race == amphi.race)
-                .count()
-                > 0
-            {
-                target_node -= 4;
-            }
-
-            let target_node_available =
-                amphis.iter().filter(|amp| amp.node == target_node).count() == 0;
-            let path_to_target_clear = occupied_hallway_nodes
-                .iter()
-                .filter(|&node| {
-                    if amphi.node == *node {
-                        false
-                    } else if amphi.node > hallway_target {
-                        *node > hallway_target
-                    } else {
-                        *node <= hallway_target
-                    }
-                })
-                .count()
-                == 0;
-
-            if target_node_available && path_to_target_clear {
-                let mut new_state = amphis;
-                new_state[amphi_id].node = target_node;
-                new_state[amphi_id].back_in_slot = true;
-                let new_cost = current_cost
-                    + (get_backwards_cost(amphi.node, target_node) * amphi.race as u32);
-                if let Some(curr) = current_minimum {
-                    if curr < new_cost {
-                        return None;
-                    }
-                };
-                if let Some(branch_cost) = find_cost(new_state, new_cost, cost) {
-                    cost = Some(
-                        cost.map_or(branch_cost, |previous_cost| previous_cost.min(branch_cost)),
-                    );
-                }
-            }
-        } else {
-            let start_node = amphi.node;
-            let hallway_target: usize = (0..4)
-                .filter_map(|node| {
-                    if start_node == TARGET_LOCATIONS + node
-                        || start_node == TARGET_LOCATIONS + 4 + node
-                    {
-                        Some(node + 1)
-                    } else {
-                        None
-                    }
-                })
-                .next()
-                .unwrap();
-            if occupied_hallway_nodes.is_empty() {
-                for target in 0usize..7 {
-                    let mut new_state = amphis;
-                    new_state[amphi_id].node = target;
-                    let new_cost =
-                        current_cost + (get_forward_cost(amphi.node, target) * amphi.race as u32);
-                    if let Some(curr) = current_minimum {
-                        if curr < new_cost {
-                            return None;
-                        }
-                    };
-                    if let Some(branch_cost) = find_cost(new_state, new_cost, cost) {
-                        cost =
-                            Some(cost.map_or(branch_cost, |previous_cost| {
-                                previous_cost.min(branch_cost)
-                            }));
-                    }
-                }
-            } else {
-                for (target, occupied) in
-                    (0usize..7).cartesian_product(occupied_hallway_nodes.iter())
-                {
-                    let path_available = if target <= hallway_target {
-                        *occupied > hallway_target
-                    } else {
-                        *occupied <= hallway_target
-                    };
-
-                    if path_available {
-                        let mut new_state = amphis;
-                        new_state[amphi_id].node = target;
-                        let new_cost = current_cost
-                            + (get_forward_cost(amphi.node, target) * amphi.race as u32);
-                        if let Some(curr) = current_minimum {
-                            if curr < new_cost {
-                                return None;
-                            }
-                        };
-                        if let Some(branch_cost) = find_cost(new_state, new_cost, cost) {
-                            cost = Some(cost.map_or(branch_cost, |previous_cost| {
-                                previous_cost.min(branch_cost)
-                            }));
-                        }
-                    }
-                }
-            }
-        }
-    }
-    cost
+    println!("Minimum cost: {}", run_cost);
 }
 
 #[cfg(test)]
@@ -594,7 +381,7 @@ mod tests {
 
     use super::*;
 
-    const forward_network_A: [(u8, u8, u8); 7] = [
+    const FORWARD_NETWORK_A: [(u8, u8, u8); 7] = [
         (1, 0, 1),
         (7, 1, 2),
         (7, 2, 2),
@@ -604,7 +391,7 @@ mod tests {
         (5, 6, 1),
     ];
 
-    const forward_network_B: [(u8, u8, u8); 7] = [
+    const FORWARD_NETWORK_B: [(u8, u8, u8); 7] = [
         (1, 0, 1),
         (8, 2, 2),
         (8, 3, 2),
@@ -614,7 +401,7 @@ mod tests {
         (5, 6, 1),
     ];
 
-    const forward_network_C: [(u8, u8, u8); 7] = [
+    const FORWARD_NETWORK_C: [(u8, u8, u8); 7] = [
         (1, 0, 1),
         (9, 3, 2),
         (9, 4, 2),
@@ -624,7 +411,7 @@ mod tests {
         (5, 6, 1),
     ];
 
-    const forward_network_D: [(u8, u8, u8); 7] = [
+    const FORWARD_NETWORK_D: [(u8, u8, u8); 7] = [
         (1, 0, 1),
         (10, 4, 2),
         (10, 5, 2),
@@ -663,10 +450,10 @@ mod tests {
     }
 
     fn network_gen() {
-        let mut total_forward_map = explore_network(&forward_network_A, 7);
-        total_forward_map.extend(explore_network(&forward_network_B, 8));
-        total_forward_map.extend(explore_network(&forward_network_C, 9));
-        total_forward_map.extend(explore_network(&forward_network_D, 10));
+        let mut total_forward_map = explore_network(&FORWARD_NETWORK_A, 7);
+        total_forward_map.extend(explore_network(&FORWARD_NETWORK_B, 8));
+        total_forward_map.extend(explore_network(&FORWARD_NETWORK_C, 9));
+        total_forward_map.extend(explore_network(&FORWARD_NETWORK_D, 10));
 
         let total_forward_network = total_forward_map
             .into_iter()
