@@ -3,8 +3,8 @@ use std::collections::BinaryHeap;
 use std::convert::TryFrom;
 use std::iter::FromIterator;
 
+use hashbrown::HashSet;
 use itertools::Itertools;
-use nom::multi::count;
 
 const TARGET_LOCATIONS: usize = 7;
 // Forward costs from one location to another (to be fair it could just be one long vector)
@@ -34,6 +34,24 @@ struct DenStatus {
     amphipods: [Amphipod; 8],
     history: Vec<([Amphipod; 8], u32)>,
     cost: u32,
+}
+
+impl DenStatus {
+    pub fn hash_string(&self) -> String {
+        let mut repr_string = String::from("...............");
+        for amphipod in self.amphipods.iter() {
+            let amphi_char = match amphipod.race {
+                AmphiType::Amber => "A",
+                AmphiType::Bronze => "B",
+                AmphiType::Copper => "C",
+                AmphiType::Desert => "D",
+            };
+
+            repr_string.replace_range(amphipod.node..amphipod.node + 1, amphi_char);
+        }
+
+        repr_string
+    }
 }
 
 impl Ord for DenStatus {
@@ -367,7 +385,13 @@ fn compute_cost_heap(amphis: [Amphipod; 8]) -> u32 {
         cost: 0,
     });
 
+    let mut seen_statuses: HashSet<String> = HashSet::new();
+
     while let Some(current_status) = dijkstra_heap.pop() {
+        let current_hash = current_status.hash_string();
+        if !seen_statuses.insert(current_hash) {
+            continue;
+        }
         let arrived_amphis = current_status
             .amphipods
             .iter()
