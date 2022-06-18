@@ -120,7 +120,6 @@ impl SeaFloor {
             if self.by_position.contains_key(&target_position) {
                 self.could_move.remove(&hor_id);
             } else {
-                let prev_col = if col == 0 { self.width - 1 } else { col - 1 };
                 let row_above = if row == 0 { self.height - 1 } else { row - 1 };
 
                 let previous_above = (row_above, col);
@@ -135,11 +134,22 @@ impl SeaFloor {
                         self.could_move.remove(curr_cucumber);
                     }
                 }
+
+                let prev_col = if col == 0 { self.width - 1 } else { col - 1 };
                 let prev_behind = (row, prev_col);
                 if let Some(behind_cucumber) = self.by_position.get(&prev_behind) {
                     if self.cucumbers[*behind_cucumber].direction == Direction::Right {
                         self.could_move.insert(*behind_cucumber);
                     }
+                }
+                let next_col = if target_col == self.width - 1 {
+                    0
+                } else {
+                    target_col + 1
+                };
+                let curr_front = (row, next_col);
+                if self.by_position.contains_key(&curr_front) {
+                    self.could_move.remove(&hor_id);
                 }
 
                 self.by_position.remove(&self.cucumbers[hor_id].position);
@@ -172,6 +182,16 @@ impl SeaFloor {
                         self.could_move.insert(*prev_above);
                     }
                 }
+                let next_row = if target_row == self.height - 1 {
+                    0
+                } else {
+                    target_row + 1
+                };
+                let curr_below = (next_row, col);
+                if self.by_position.contains_key(&curr_below) {
+                    self.could_move.remove(&vert_id);
+                }
+
                 let current_left = (target_row, col_left);
                 if let Some(curr_cucumber) = self.by_position.get(&current_left) {
                     if self.cucumbers[*curr_cucumber].direction == Direction::Right {
@@ -213,12 +233,38 @@ impl fmt::Display for SeaFloor {
     }
 }
 
+pub fn part1(input: &str) {
+    let mut sea_floor = SeaFloor::new(input);
+
+    sea_floor.find_final_state().unwrap();
+
+    println!(
+        "The cucumbers stop moving at timestep {}",
+        sea_floor.timestep + 1
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     impl SeaFloor {
         pub fn find_differences(&self, other: &Self) {
+            let self_print_data = format!("{}", self)
+                .lines()
+                .map(|line| line.to_string())
+                .collect_vec();
+            let other_print_data = format!("{}", other)
+                .lines()
+                .map(|line| line.to_string())
+                .collect_vec();
+
+            let data_width = self_print_data.len();
+            println!(
+                "{:^data_width$}\t{:^data_width$}\t{:^data_width$}",
+                "Self", "Diff", "Other"
+            );
+
             for row in 0usize..self.height {
                 let mut raw_line: Vec<char> = vec!['.'; self.width];
                 for cell_id in
@@ -248,7 +294,30 @@ mod tests {
                     };
                 }
 
-                println!("{}", raw_line.into_iter().collect::<String>());
+                println!(
+                    "{}\t{}\t{}",
+                    self_print_data[row],
+                    raw_line.into_iter().collect::<String>(),
+                    other_print_data[row]
+                );
+            }
+        }
+
+        pub fn print_movable_cucumbers(&self) {
+            for cucumber in self
+                .could_move
+                .iter()
+                .map(|id| self.cucumbers.get(*id).unwrap())
+                .sorted_by(|left, right| Ord::cmp(&left.position, &right.position))
+            {
+                print!(
+                    "\tCucumber at position [{}, {}] could move ",
+                    cucumber.position.0, cucumber.position.1
+                );
+                match cucumber.direction {
+                    Direction::Right => println!("right."),
+                    Direction::Down => println!("down."),
+                };
             }
         }
     }
@@ -289,6 +358,29 @@ mod tests {
         };
 
         assert_eq!(sea_floor, ref_floor);
+    }
+
+    #[test]
+    fn single_line() {
+        let input_string = "...>>>>>...";
+
+        let mut sea_floor = SeaFloor::new(input_string);
+
+        let ref_data = ["...>>>>.>..", "...>>>.>.>."];
+
+        for raw_state in ref_data {
+            sea_floor.step();
+
+            let ref_floor = SeaFloor::new(raw_state);
+
+            for cucumber in sea_floor.cucumbers.iter() {
+                let ref_cucumber_id = ref_floor.by_position.get(&cucumber.position).unwrap();
+                assert_eq!(
+                    cucumber.direction,
+                    ref_floor.cucumbers[*ref_cucumber_id].direction
+                );
+            }
+        }
     }
 
     #[test]
@@ -363,6 +455,11 @@ mod tests {
         .vv..>.>v.
         v.v..>>v.v
         ....v..v.>";
+
+        let mut sea_floor = SeaFloor::new(input_string);
+
+        sea_floor.find_final_state();
+        assert_eq!(sea_floor.timestep + 1, 58);
 
         let mut sea_floor = SeaFloor::new(input_string);
 
@@ -544,25 +641,12 @@ mod tests {
                 sea_floor.step();
             }
 
-            let mut equal_states = true;
             for current_cucumber in sea_floor.cucumbers.iter() {
                 let position = current_cucumber.position;
-                if let Some(ref_id) = ref_state.by_position.get(&position) {
-                    let ref_cucumber = ref_state.cucumbers.get(*ref_id).unwrap();
-                    equal_states &= current_cucumber.direction == ref_cucumber.direction;
-                } else {
-                    equal_states = false;
-                    break;
-                }
-            }
-
-            if !equal_states {
-                println!("Found the following differences at step {:04}:", step);
-                sea_floor.find_differences(&ref_state);
-                println!();
+                let ref_id = ref_state.by_position.get(&position).unwrap();
+                let ref_cucumber = ref_state.cucumbers.get(*ref_id).unwrap();
+                assert_eq!(current_cucumber.direction, ref_cucumber.direction);
             }
         }
-
-        assert_eq!(sea_floor.timestep, 2);
     }
 }
