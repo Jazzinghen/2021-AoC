@@ -1,8 +1,12 @@
 [package]
 name = "advent_of_code"
-version = "0.1.0"
-authors = ["Nicky van Urk <info@nickyvanurk.com>"]
-edition = "2018"
+version = "0.2.0"
+authors = ["Michele Bianchi <jazzinghen@gmail.com>"]
+description = "Solutions for Advent of Code written in Rust"
+edition = "2021"
+license-file = "LICENSE"
+readme = "README.md"
+repository = "https://github.com/Jazzinghen/AdventOfCode"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,6 +17,7 @@ strip = true
 strip = true
 
 [dependencies]
+clap = {version = ">=3.1", features = ["derive", "unicode"]}
 itertools = ">=0.10"
 nom = ">=7"
 hashbrown = ">=0.12"

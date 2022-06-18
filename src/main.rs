@@ -1,12 +1,34 @@
-use std::env;
-use std::fs;
-use std::io;
 use std::time::{Duration, Instant};
+use std::{env, fs};
+
+use clap::Parser;
 
 mod aoc_lib;
-use aoc_lib::get_day;
+use aoc_lib::DayFn;
 
-mod days;
+mod year_2021;
+
+#[derive(Parser)]
+#[clap(author, version, about, long_about = None)]
+struct CLIConfig {
+    /// Day to run
+    #[clap(value_parser)]
+    day: u8,
+
+    /// Year to get the day from
+    #[clap(short, long, value_parser, default_value_t = 2021)]
+    year: u16,
+}
+
+fn get_day(year: u16, day: u8) -> (Option<DayFn>, Option<DayFn>) {
+    return match year {
+        2021 => year_2021::get_day(day),
+        _ => {
+            println!("Unknown year: {}", year);
+            return (None, None);
+        }
+    };
+}
 
 fn fmt_time(ms: f64) -> String {
     if ms <= 1.0 {
@@ -38,37 +60,20 @@ fn fmt_dur(dur: Duration) -> String {
 
 fn main() {
     // Get day string
-    let args: Vec<String> = env::args().collect();
-    let mut day = String::new();
-
-    if args.len() >= 2 {
-        day = args[1].clone();
-    } else {
-        println!("Enter day: ");
-        io::stdin()
-            .read_line(&mut day)
-            .expect("Failed to read line");
-    }
-
-    // Parse day as number
-    day = day.trim().to_string();
-    let day_num: u32 = match day.parse() {
-        Ok(num) => num,
-        Err(_) => {
-            println!("Invalid day number: {}", day);
-            return;
-        }
-    };
+    let user_config = CLIConfig::parse();
 
     // Read input file
     let cwd = env::current_dir().unwrap();
-    let filename = cwd.join("inputs").join(format!("day{:02}.txt", day_num));
+    let filename = cwd
+        .join("inputs")
+        .join(format!("{}", user_config.year))
+        .join(format!("day{:02}.txt", user_config.day));
     println!("Reading {}", filename.display());
     println!();
     let input = fs::read_to_string(filename).expect("Error while reading");
 
     // Get corresponding function
-    let to_run = get_day(day_num);
+    let to_run = get_day(user_config.year, user_config.day);
 
     // Time it
     if let Some(part_one) = to_run.0 {

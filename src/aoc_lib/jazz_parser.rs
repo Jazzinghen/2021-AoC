@@ -15,10 +15,7 @@ fn uint(input: &str) -> IResult<&str, &str> {
 
 pub fn _i64(input: &str) -> IResult<&str, i64> {
     let parser = recognize(pair(opt(tag("-")), uint));
-    map(parser, |s| {
-        // FIXME: unwrap() may panic if the value is out of range
-        s.parse::<i64>().unwrap()
-    })(input)
+    map(parser, |s| s.parse::<i64>().unwrap())(input)
 }
 
 pub fn i32(input: &str) -> IResult<&str, i32> {
@@ -28,8 +25,5 @@ pub fn i32(input: &str) -> IResult<&str, i32> {
 
 pub fn usize(input: &str) -> IResult<&str, usize> {
     let parser = recognize(uint);
-    map(parser, |s| {
-        // FIXME: unwrap() may panic if the value is out of range
-        s.parse::<usize>().unwrap()
-    })(input)
+    map(parser, |s| s.parse::<usize>().unwrap())(input)
 }
