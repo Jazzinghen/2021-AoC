@@ -249,7 +249,7 @@ mod tests {
     use super::*;
 
     impl SeaFloor {
-        pub fn find_differences(&self, other: &Self) {
+        pub fn _find_differences(&self, other: &Self) {
             let self_print_data = format!("{}", self)
                 .lines()
                 .map(|line| line.to_string())
@@ -303,7 +303,7 @@ mod tests {
             }
         }
 
-        pub fn print_movable_cucumbers(&self) {
+        pub fn _print_movable_cucumbers(&self) {
             for cucumber in self
                 .could_move
                 .iter()
@@ -458,7 +458,7 @@ mod tests {
 
         let mut sea_floor = SeaFloor::new(input_string);
 
-        sea_floor.find_final_state();
+        sea_floor.find_final_state().unwrap();
         assert_eq!(sea_floor.timestep + 1, 58);
 
         let mut sea_floor = SeaFloor::new(input_string);
