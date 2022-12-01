@@ -17,10 +17,10 @@ strip = true
 strip = true
 
 [dependencies]
-clap = {version = ">=3.1", features = ["derive", "unicode"]}
-itertools = ">=0.10"
-nom = ">=7"
-hashbrown = ">=0.12"
-indextree = ">=4.4.0"
-nalgebra = ">= 0.31"
-rayon = ">= 1.5"
+clap = {version = "4.0.29", features = ["derive", "unicode"]}
+itertools = "0.10.5"
+nom = "7.1.1"
+hashbrown = "0.13.1"
+indextree = "4.5"
+nalgebra = "0.31.4"
+rayon = "1.6"

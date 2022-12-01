@@ -27,7 +27,7 @@ mod day25;
 use crate::aoc_lib::DayFn;
 
 pub fn get_day(day: u8) -> (Option<DayFn>, Option<DayFn>) {
-    return match day {
+    match day {
         1 => (Some(day01::part1), Some(day01::part2)),
         2 => (Some(day02::part1), Some(day02::part2)),
         3 => (Some(day03::part1), Some(day03::part2)),
@@ -55,7 +55,7 @@ pub fn get_day(day: u8) -> (Option<DayFn>, Option<DayFn>) {
         25 => (Some(day25::part1), None),
         _ => {
             println!("Unknown day: {}", day);
-            return (None, None);
+            (None, None)
         }
-    };
+    }
 }

@@ -53,22 +53,4 @@ fn sum_window(tuple: (&str, &str, &str)) -> Option<i32> {
     Some(final_sum)
 }
 
-pub fn part2(input: &str) {
-    let mut line_input = input.split('\n').tuple_windows::<(_, _, _)>();
-    //let mut
-    let mut last_full_value =
-        sum_window(line_input.next().unwrap()).expect("I am expecting more than three values");
-    let mut increases = 0;
-
-    for curr_value in line_input {
-        let curr_num = sum_window(curr_value);
-        if let Some(num) = curr_num {
-            if num > last_full_value {
-                increases += 1;
-            }
-            last_full_value = num;
-        }
-    }
-
-    println!("Amount of increases: {}", increases);
-}
+pub fn part2(input: &str) {}
