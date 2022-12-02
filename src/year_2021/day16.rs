@@ -162,27 +162,9 @@ fn parse_operator(input: &str) -> OperatorPayload {
         1u8 => sub_packets.iter().map(Packet::get_value).product(),
         2u8 => sub_packets.iter().map(Packet::get_value).min().unwrap(),
         3u8 => sub_packets.iter().map(Packet::get_value).max().unwrap(),
-        5u8 => {
-            if sub_packets[0].get_value() > sub_packets[1].get_value() {
-                1u64
-            } else {
-                0u64
-            }
-        }
-        6u8 => {
-            if sub_packets[0].get_value() < sub_packets[1].get_value() {
-                1u64
-            } else {
-                0u64
-            }
-        }
-        7u8 => {
-            if sub_packets[0].get_value() == sub_packets[1].get_value() {
-                1u64
-            } else {
-                0u64
-            }
-        }
+        5u8 => (sub_packets[0].get_value() > sub_packets[1].get_value()) as u64,
+        6u8 => (sub_packets[0].get_value() < sub_packets[1].get_value()) as u64,
+        7u8 => (sub_packets[0].get_value() == sub_packets[1].get_value()) as u64,
         _ => {
             panic!("Invalid operation id {}", op_id)
         }

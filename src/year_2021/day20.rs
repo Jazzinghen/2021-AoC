@@ -126,9 +126,9 @@ impl ImageEnhancer {
     }
 
     fn compute_pixel_value(&self, pixels: &[bool; 9]) -> bool {
-        let index = pixels.iter().fold(0usize, |total, pixel| {
-            (total << 1) + if *pixel { 1 } else { 0 }
-        });
+        let index = pixels
+            .iter()
+            .fold(0usize, |total, pixel| (total << 1) + (*pixel as usize));
 
         self.lut[index]
     }

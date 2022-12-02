@@ -128,9 +128,7 @@ mod tests {
                     "mul" => registers[dst_idx] *= src_data,
                     "div" => registers[dst_idx] /= src_data,
                     "mod" => registers[dst_idx] %= src_data,
-                    "eql" => {
-                        registers[dst_idx] = if registers[dst_idx] == src_data { 1 } else { 0 }
-                    }
+                    "eql" => registers[dst_idx] = (registers[dst_idx] == src_data) as i32,
                     _ => panic!(
                         "Got a strange instruction: \"{}\"",
                         parts[0].to_ascii_lowercase()
