@@ -53,7 +53,7 @@ fn fmt_time(ms: f64) -> String {
     }
 
     let min: f64 = sec / 60.0;
-    return format!("{}m ", min.floor()) + &fmt_time((sec % 60.0) * 1000.0);
+    format!("{}m ", min.floor()) + &fmt_time((sec % 60.0) * 1000.0)
 }
 
 fn fmt_dur(dur: Duration) -> String {

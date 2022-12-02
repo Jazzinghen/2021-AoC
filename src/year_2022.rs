@@ -4,7 +4,7 @@ use crate::aoc_lib::DayFn;
 
 pub fn get_day(day: u8) -> (Option<DayFn>, Option<DayFn>) {
     match day {
-        1 => (Some(day01::part1), None),
+        1 => (Some(day01::part1), Some(day01::part2)),
         2 => (None, None),
         3 => (None, None),
         4 => (None, None),
