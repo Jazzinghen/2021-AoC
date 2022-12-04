@@ -17,23 +17,20 @@ impl Rucksack {
         assert_eq!(contents_amount % 2, 0);
         let half_data = contents_amount / 2;
         let mut front: HashSet<char> = HashSet::new();
-        let mut full_contents: HashSet<char> = HashSet::new();
 
         for content in raw_data.chars().take(half_data) {
             front.insert(content);
-            full_contents.insert(content);
         }
 
         let mut back: HashSet<char> = HashSet::new();
         for content in raw_data.chars().skip(half_data) {
             back.insert(content);
-            full_contents.insert(content);
         }
 
         let shared_stuff: HashSet<char> = find_shared_contents(&front, &back);
 
         Self {
-            full_contents,
+            full_contents: front.union(&back).copied().collect(),
             front,
             back,
             shared_stuff,
