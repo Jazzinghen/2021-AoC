@@ -3,6 +3,7 @@ mod day02;
 mod day03;
 mod day04;
 mod day05;
+mod day06;
 
 use crate::aoc_lib::DayFn;
 
@@ -13,7 +14,7 @@ pub fn get_day(day: u8) -> (Option<DayFn>, Option<DayFn>) {
         3 => (Some(day03::part1), Some(day03::part2)),
         4 => (Some(day04::part1), Some(day04::part2)),
         5 => (Some(day05::part1), Some(day05::part2)),
-        6 => (None, None),
+        6 => (Some(day06::part1), Some(day06::part2)),
         7 => (None, None),
         8 => (None, None),
         9 => (None, None),
