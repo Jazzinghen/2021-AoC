@@ -18,6 +18,7 @@ strip = true
 opt-level = 3
 
 [dependencies]
+ansi_term = "0.12"
 clap = {version = "4.0.29", features = ["derive", "unicode"]}
 hashbrown = "0.13.1"
 indextree = "4.5"
