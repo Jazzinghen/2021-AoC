@@ -69,12 +69,11 @@ impl Cave {
         }
 
         let norm_x = coordinate.x - self.bottom_left.x;
-
         Ok(norm_x * (self.bottom_left.y + 1) + coordinate.y)
     }
 
-    fn from_raw_segments(input: &str) -> Self {
-        let rock_segments: HashSet<Segment> = input
+    fn from_raw_segments(input: &str, infinite: bool) -> Self {
+        let mut rock_segments: HashSet<Segment> = input
             .lines()
             .flat_map(|l| parse_rock_sequence(l.trim()).unwrap().1)
             .collect();
@@ -88,22 +87,43 @@ impl Cave {
             .iter()
             .max_by(|left, right| left.y.cmp(&right.y))
             .unwrap()
-            .y;
-        let left = important_points
+            .y
+            + if infinite { 0 } else { 2 };
+        let leftmost_point = important_points
             .iter()
             .min_by(|left, right| left.x.cmp(&right.x))
             .unwrap()
-            .x
-            - 1;
-        let right = important_points
+            .x;
+        let rightmost_point = important_points
             .iter()
             .max_by(|left, right| left.x.cmp(&right.x))
             .unwrap()
-            .x
-            + 1;
+            .x;
 
-        let x_range = (right - left) + 1;
+        let left = if infinite {
+            leftmost_point - 1
+        } else {
+            (500 - bottom).min(leftmost_point) - 1
+        };
+        let right = if infinite {
+            rightmost_point + 1
+        } else {
+            (500 + bottom).max(rightmost_point) + 1
+        };
+
         let y_range = bottom + 1;
+        let x_range = (right - left) + 1;
+
+        if !infinite {
+            let floor = Segment {
+                start: Point { x: left, y: bottom },
+                end: Point {
+                    x: right,
+                    y: bottom,
+                },
+            };
+            rock_segments.insert(floor);
+        }
 
         let mut new_cave = Self {
             cells: vec![CellType::Empty; x_range * y_range],
@@ -155,7 +175,7 @@ impl Cave {
                 sand_coord.y = new_y;
                 let sand_id = self.compute_linear_id(sand_coord).unwrap();
                 self.cells[sand_id] = CellType::Sand;
-                return true;
+                return !(sand_coord.x == 500 && sand_coord.y == 0);
             }
         }
 
@@ -225,7 +245,7 @@ impl Cave {
 }
 
 pub fn part1(input: &str) {
-    let mut cave = Cave::from_raw_segments(input);
+    let mut cave = Cave::from_raw_segments(input, true);
 
     cave.simulate(None);
 
@@ -237,37 +257,24 @@ pub fn part1(input: &str) {
 
     cave.print_cave_visual();
 
-    println!("Amount of sand: {}", sand_amount);
+    println!("Amount of sand in an unlimited cave: {}", sand_amount);
 }
 
-/*
 pub fn part2(input: &str) {
-    let mut packets = parse_packets(input);
-    let (_, first_divider) = parse_list("[[2]]").unwrap();
-    let (_, second_divider) = parse_list("[[6]]").unwrap();
+    let mut cave = Cave::from_raw_segments(input, false);
 
-    packets.push(first_divider.clone());
-    packets.push(second_divider.clone());
+    cave.simulate(None);
 
-    packets.sort();
-
-    let first_id = packets
+    let sand_amount = cave
+        .cells
         .iter()
-        .position(|pack| *pack == first_divider)
-        .unwrap()
-        + 1;
+        .filter(|&&cell| cell == CellType::Sand)
+        .count();
 
-    let second_id = packets
-        .iter()
-        .position(|pack| *pack == second_divider)
-        .unwrap()
-        + 1;
+    cave.print_cave_visual();
 
-    let decoder_key = first_id * second_id;
-
-    println!("Decoder key: {}", decoder_key);
+    println!("Amount of sand in a cave with floor: {}", sand_amount);
 }
-*/
 
 #[cfg(test)]
 mod tests {
@@ -278,7 +285,7 @@ mod tests {
 
     #[test]
     fn simple_tops() {
-        let cave = Cave::from_raw_segments(INPUT_STRING);
+        let cave = Cave::from_raw_segments(INPUT_STRING, true);
         let tops = (cave.bottom_left.x..=cave.top_right.x)
             .map(|x| cave.find_furthest_free_y(Point { x, y: 0 }))
             .collect_vec();
@@ -303,7 +310,7 @@ mod tests {
 
     #[test]
     fn simple_flow() {
-        let mut cave = Cave::from_raw_segments(INPUT_STRING);
+        let mut cave = Cave::from_raw_segments(INPUT_STRING, true);
 
         cave.simulate(None);
 
@@ -314,5 +321,20 @@ mod tests {
             .count();
 
         assert_eq!(sand_amount, 24);
+    }
+
+    #[test]
+    fn simple_floor() {
+        let mut cave = Cave::from_raw_segments(INPUT_STRING, false);
+
+        cave.simulate(None);
+
+        let sand_amount = cave
+            .cells
+            .iter()
+            .filter(|&&cell| cell == CellType::Sand)
+            .count();
+
+        assert_eq!(sand_amount, 93);
     }
 }
