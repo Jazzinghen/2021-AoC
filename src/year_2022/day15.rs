@@ -1,13 +1,12 @@
 use hashbrown::HashSet;
 use itertools::Itertools;
 use nom::bytes::complete::tag;
-use nom::character::complete::{char, digit1};
-use nom::combinator::{map, opt};
-use nom::sequence::{pair, preceded, separated_pair};
+use nom::combinator::map;
+use nom::sequence::{preceded, separated_pair};
 use nom::IResult;
 use rayon::prelude::*;
 
-use crate::aoc_lib::jazz_parser::usize;
+use crate::aoc_lib::jazz_parser::i32;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 struct Point {
@@ -71,22 +70,12 @@ impl Sensor {
     }
 }
 
-fn parse_integer(input: &str) -> IResult<&str, i32> {
-    map(
-        pair(opt(char('-')), digit1),
-        |(sign, value): (Option<char>, &str)| {
-            let sign_mul = if sign.is_some() { -1 } else { 1 };
-            value.parse::<i32>().unwrap() * sign_mul
-        },
-    )(input)
-}
-
 fn parse_point(input: &str) -> IResult<&str, Point> {
     map(
         separated_pair(
-            preceded(tag("x="), parse_integer),
+            preceded(tag("x="), i32),
             tag(", "),
-            preceded(tag("y="), parse_integer),
+            preceded(tag("y="), i32),
         ),
         |(x, y)| Point { x, y },
     )(input)
