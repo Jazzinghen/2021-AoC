@@ -15,7 +15,6 @@ strip = true
 
 [profile.test]
 strip = true
-opt-level = 3
 
 [dependencies]
 ansi_term = "0.12"
