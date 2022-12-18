@@ -23,6 +23,10 @@ pub fn i32(input: &str) -> IResult<&str, i32> {
     )(input)
 }
 
+pub fn u64(input: &str) -> IResult<&str, u64> {
+    map(digit1, |s: &str| s.parse().unwrap())(input)
+}
+
 pub fn usize(input: &str) -> IResult<&str, usize> {
     map(digit1, |s: &str| s.parse().unwrap())(input)
 }
