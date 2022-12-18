@@ -34,7 +34,7 @@ pub fn get_day(day: u8) -> (Option<DayFn>, Option<DayFn>) {
         13 => (Some(day13::part1), Some(day13::part2)),
         14 => (Some(day14::part1), Some(day14::part2)),
         15 => (Some(day15::part1), Some(day15::part2)),
-        16 => (Some(day16::part1), None),
+        16 => (Some(day16::part1), Some(day16::part2)),
         17 => (None, None),
         18 => (None, None),
         19 => (None, None),
