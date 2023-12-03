@@ -8,6 +8,7 @@ use aoc_lib::DayFn;
 
 mod year_2021;
 mod year_2022;
+mod year_2023;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -25,6 +26,7 @@ fn get_day(year: u16, day: u8) -> (Option<DayFn>, Option<DayFn>) {
     return match year {
         2021 => year_2021::get_day(day),
         2022 => year_2022::get_day(day),
+        2023 => year_2023::get_day(day),
         _ => {
             println!("Unknown year: {}", year);
             return (None, None);
